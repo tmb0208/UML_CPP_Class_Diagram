@@ -8,7 +8,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Builds cpp class uml representation in dot node format')
+        description='Builds graphviz dot node containing cpp class uml representation')
 
     parser.add_argument('-f', '--header-file', help='Path to cpp header file.', required=True)
     parser.add_argument('-c', '--class-name', help='Path to json config file.', required=True)
@@ -18,62 +18,74 @@ def parse_args():
     return args
 
 
-def build_uml_properties_representation(cpp_class, access_modificator_representations):
+def build_uml_properties_representation(properties, access_modificator_representations):
     results = []
 
-    uml_property_representation = "{} {} : {}"
+    representation = "{} {} : {}"
 
-    properties = cpp_class["properties"]
     for acc_mod, acc_mod_rep in access_modificator_representations.items():
         for property in properties[acc_mod]:
-            results.append(uml_property_representation.format(
+            results.append(representation.format(
                 acc_mod_rep, property["name"], property["type"]))
 
     return results
 
 
-def build_uml_methods_representation(cpp_class, access_modificator_representations):
+def build_uml_method_parameters_representation(method):
     results = []
 
-    uml_method_representation = "{} {}( {} ): {} {}"
-    uml_method_parameter_representation = "{} : {}"
+    representation = "{} : {}"
 
-    methods = cpp_class["methods"]
+    for parameter in method["parameters"]:
+        results.append(
+            representation.format(parameter["name"],
+                                  parameter["type"]))
+
+    return ', '.join(results)
+
+
+def build_uml_method_name_representation(method):
+    result = method["name"]
+
+    if method["destructor"]:
+        result = "~" + result
+
+    return result
+
+
+def build_uml_method_return_type_representation(method):
+    if method["constructor"] or method["destructor"]:
+        return ""
+
+    return method["rtnType"]
+
+
+def build_uml_method_specificators_representation(method):
+    if method["pure_virtual"]:
+        return "= 0"
+    elif method["virtual"]:
+        return "[virtual]"
+    elif method["override"]:
+        return "[override]"
+    else:
+        return ""
+
+
+def build_uml_methods_representation(methods, access_modificator_representations):
+    results = []
+
+    representation = "{} {}( {} ) : {} {}"
+
     for acc_mod, acc_mod_rep in access_modificator_representations.items():
         for method in methods[acc_mod]:
-            parameters_representation = []
-            for parameter in method["parameters"]:
-                parameters_representation.append(
-                    uml_method_parameter_representation.format(parameter["name"],
-                                                               parameter["type"]))
+            result = representation.format(
+                acc_mod_rep,
+                build_uml_method_name_representation(method),
+                build_uml_method_parameters_representation(method),
+                build_uml_method_return_type_representation(method),
+                build_uml_method_specificators_representation(method))
 
-            methodName = method["name"]
-            returnType = ""
-            if not method["constructor"] and not method["destructor"]:
-                returnType = method["rtnType"]
-            elif method["destructor"]:
-                methodName = "~" + methodName
-
-            specificators = ""
-            if method["pure_virtual"]:
-                specificators = "= 0"
-            elif method["virtual"]:
-                specificators = "[virtual]"
-            elif method["override"]:
-                specificators = "[override]"
-
-            result = uml_method_representation.format(acc_mod_rep,
-                                                      methodName,
-                                                      ', '.join(parameters_representation),
-                                                      returnType,
-                                                      specificators)
             result = result.rstrip(": ")
-
-            # if method["static"]:
-            #     result = "<u>{}</u>".format(result)
-            # elif method["pure_virtual"]:
-            #     result = "<i>{}</i>".format(result)
-
             results.append(result)
 
     return results
@@ -130,41 +142,10 @@ def build_html_uml_methods_representation(uml_methods_representation):
     return results
 
 
-def build_uml_class_representation(path_to_header, class_name):
-    try:
-        cppHeader = CppHeaderParser.CppHeader(path_to_header)
-    except CppHeaderParser.CppParseError as e:
-        print(e)
-        sys.exit(1)
-
-    cpp_class = cppHeader.classes[class_name]
-    class_caption = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
-
-    access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
-
-    uml_properties_representation = build_uml_properties_representation(
-        cpp_class, access_modificator_representations)
-
-    uml_methods_representation = build_uml_methods_representation(
-        cpp_class, access_modificator_representations)
-
-    html_uml_properties_representation = build_html_uml_properties_representation(
-        uml_properties_representation)
-    html_uml_methods_representation = build_html_uml_methods_representation(
-        uml_methods_representation)
-
-    node_template = """
-    [
-    shape=none
-    margin=0
-    style="filled",
-    fillcolor="grey75",
-    fontcolor="black",
-    label = {}
-    ];"""
-
-    label_value_template = """
-    <<table border="0" cellspacing="0" cellborder="1">
+def build_html_uml_class_representation(class_caption,
+                                        html_uml_properties_representation,
+                                        html_uml_methods_representation):
+    label_value_template = """<<table border="0" cellspacing="0" cellborder="1">
         <tr>
             <td>{}</td>
         </tr>
@@ -176,17 +157,57 @@ def build_uml_class_representation(path_to_header, class_name):
         </tr>
     </table>>"""
 
-    label_value = label_value_template.format(class_caption,
-                                              '<br />'.join(html_uml_properties_representation),
-                                              '<br />'.join(html_uml_methods_representation))
-    node = node_template.format(label_value)
+    return label_value_template.format(class_caption,
+                                       '<br />'.join(html_uml_properties_representation),
+                                       '<br />'.join(html_uml_methods_representation))
 
-    print node
+
+def build_dot_node(label_value):
+    node_template = """[
+    shape=none
+    margin=0
+    style="filled",
+    fillcolor="grey75",
+    fontcolor="black",
+    label = {}
+    ];"""
+
+    return node_template.format(label_value)
+
+
+def build_dot_node_class_uml_representation(path_to_header, class_name):
+    try:
+        cppHeader = CppHeaderParser.CppHeader(path_to_header)
+    except CppHeaderParser.CppParseError as e:
+        print(e)
+        sys.exit(1)
+
+    cpp_class = cppHeader.classes[class_name]
+    class_caption = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
+
+    access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
+    uml_properties_representation = build_uml_properties_representation(
+        cpp_class["properties"], access_modificator_representations)
+    uml_methods_representation = build_uml_methods_representation(
+        cpp_class["methods"], access_modificator_representations)
+
+    html_uml_properties_representation = build_html_uml_properties_representation(
+        uml_properties_representation)
+    html_uml_methods_representation = build_html_uml_methods_representation(
+        uml_methods_representation)
+
+    html_uml_class_representation = build_html_uml_class_representation(
+        class_caption,
+        html_uml_properties_representation,
+        html_uml_methods_representation)
+
+    return build_dot_node(html_uml_class_representation)
 
 
 def main(argv):
     args = parse_args()
-    build_uml_class_representation(args.header_file, args.class_name)
+    node = build_dot_node_class_uml_representation(args.header_file, args.class_name)
+    print node
 
 
 if __name__ == "__main__":
