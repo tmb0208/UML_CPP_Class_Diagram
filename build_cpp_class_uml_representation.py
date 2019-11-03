@@ -18,6 +18,19 @@ def parse_args():
     return args
 
 
+# WORKAROUND
+def is_property_valid(property):
+    return not property["type"] == "using"
+
+
+# WORKAROUND
+def normalize_property_type(type):
+    match = re.search(r"^.*?[^:]:[^:]", type)
+    if match:
+        return type[len(match.group(0))-1:]
+    return type
+
+
 def build_uml_properties_representation(properties, access_modificator_representations):
     results = []
 
@@ -25,8 +38,10 @@ def build_uml_properties_representation(properties, access_modificator_represent
 
     for acc_mod, acc_mod_rep in access_modificator_representations.items():
         for property in properties[acc_mod]:
-            results.append(representation.format(
-                acc_mod_rep, property["name"], property["type"]))
+            if is_property_valid(property):
+                results.append(representation.format(acc_mod_rep,
+                                                     property["name"],
+                                                     normalize_property_type(property["type"])))
 
     return results
 
