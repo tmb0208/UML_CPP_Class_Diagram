@@ -197,8 +197,14 @@ def build_dot_node_class_uml_representation(path_to_header, class_name):
         print(e)
         sys.exit(1)
 
+    if not class_name in cppHeader.classes:
+        return "Error: No such class"
+
     cpp_class = cppHeader.classes[class_name]
     class_caption = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
+    if "template" in cpp_class:
+        class_caption += " " + cpp_class["template"]
+    class_caption = replace_html_specific_characters(class_caption)
 
     access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
     uml_properties_representation = build_uml_properties_representation(
