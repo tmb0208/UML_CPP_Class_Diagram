@@ -4,16 +4,23 @@ import sys
 import CppHeaderParser
 import re
 import argparse
+import os
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Builds graphviz dot node containing cpp class uml representation')
 
-    parser.add_argument('-f', '--header-file', help='Path to cpp header file.', required=True)
-    parser.add_argument('-c', '--class-name', help='Path to json config file.', required=True)
+    parser.add_argument('-f', '--file-path', help='Path to cpp source file.', required=True)
+    parser.add_argument('-c', '--class-name',
+                        help='Path to json config file. By default would be extracted from file '
+                             'name')
 
     args = parser.parse_args()
+
+    if not args.class_name:
+        file = os.path.split(args.file_path)[1]
+        args.class_name = os.path.splitext(file)[0]
 
     return args
 
@@ -227,7 +234,7 @@ def build_dot_node_class_uml_representation(path_to_header, class_name):
 
 def main(argv):
     args = parse_args()
-    node = build_dot_node_class_uml_representation(args.header_file, args.class_name)
+    node = build_dot_node_class_uml_representation(args.file_path, args.class_name)
     print node
 
 
