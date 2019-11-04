@@ -7,14 +7,39 @@ import argparse
 import os
 
 
+def get_uml_class_diagram_relationships():
+    return ["association", "dependency", "aggregation", "composition", "inheritance"]
+
+
+def get_uml_class_diagram_relationships_dot_representation():
+    return {
+        "association":
+            """[style="solid", arrowhead="vee"];""",
+        "dependency":
+            """[style="dashed", arrowhead="vee"];""",
+        "aggregation":
+            """[style="solid", {}, arrowhead="odiamond", arrowtail="vee", dir="both"];""",
+        "composition":
+            """[style="solid", {}, arrowhead="diamond", arrowtail="vee", dir="both"];""",
+        "inheritance":
+            """[style="solid", arrowhead="onormal"];}"""
+    }
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Builds graphviz dot node containing cpp class uml representation')
+        description='Builds graphviz dot node and relationship containing cpp class uml '
+                    'representation')
 
     parser.add_argument('-f', '--file-path', help='Path to cpp source file.', required=True)
     parser.add_argument('-c', '--class-name',
                         help='Path to json config file. By default would be extracted from file '
                              'name')
+    parser.add_argument('-t', '--relationship-type',
+                        choices=get_uml_class_diagram_relationships(),
+                        help='Sets type of relationship')
+    parser.add_argument('-l', '--relationship-label', help='Sets relationship label')
+    parser.add_argument('-d', '--relationship-dependee', help='Sets relationship dependee name')
 
     args = parser.parse_args()
 
@@ -184,7 +209,7 @@ def build_html_uml_class_representation(class_caption,
                                        '<br />'.join(html_uml_methods_representation))
 
 
-def build_dot_node(label_value):
+def build_dot_node(label):
     node_template = """[
     shape=none
     margin=0
@@ -194,10 +219,21 @@ def build_dot_node(label_value):
     label = {}
     ];"""
 
-    return node_template.format(label_value)
+    return node_template.format(label)
 
 
-def build_dot_node_class_uml_representation(path_to_header, class_name):
+def build_dot_relationship(depender, dependee, rtype, label=""):
+    relationships = get_uml_class_diagram_relationships_dot_representation()
+    relationship = relationships[rtype]
+    if rtype == "aggregation" or rtype == "association":
+        if label:
+            label_attr = "label = \"{}\"".format(label)
+            relationship.format(label_attr)
+
+    return "{} -> {} {}".format(depender, dependee, relationship)
+
+
+def build_dot_class_uml_representation(path_to_header, class_name):
     try:
         cppHeader = CppHeaderParser.CppHeader(path_to_header)
     except CppHeaderParser.CppParseError as e:
@@ -234,8 +270,13 @@ def build_dot_node_class_uml_representation(path_to_header, class_name):
 
 def main(argv):
     args = parse_args()
-    node = build_dot_node_class_uml_representation(args.file_path, args.class_name)
+
+    node = build_dot_class_uml_representation(args.file_path, args.class_name)
+    relationship = build_dot_relationship(args.class_name, args.relationship_dependee,
+                                          args.relationship_type, args.relationship_label)
+
     print node
+    print relationship
 
 
 if __name__ == "__main__":
