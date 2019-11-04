@@ -28,8 +28,8 @@ def get_uml_class_diagram_relationships_dot_representation():
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description='Builds graphviz dot node and relationship containing cpp class uml '
-                    'representation')
+        description='Extracts class diagram from header file and builds its representation and'
+                    'relationship (optionally) in graphviz dot language.')
 
     parser.add_argument('-f', '--file-path', help='Path to cpp source file.', required=True)
     parser.add_argument('-c', '--class-name',
