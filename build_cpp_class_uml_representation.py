@@ -11,35 +11,37 @@ def get_uml_class_diagram_relationships():
     return ["association", "dependency", "aggregation", "composition", "inheritance"]
 
 
-def get_uml_class_diagram_relationships_dot_representation():
-    return {
-        "association":
-            """[style="solid", arrowhead="vee"]; // association""",
-        "dependency":
-            """[style="dashed", arrowhead="vee"]; // dependency""",
-        "aggregation":
-            """[style="solid", {}, arrowhead="odiamond", arrowtail="vee", dir="both"]; // aggregation""",
-        "composition":
-            """[style="solid", {}, arrowhead="diamond", arrowtail="vee", dir="both"]; // composition""",
-        "inheritance":
-            """[style="solid", arrowhead="onormal"];} // inheritance"""
-    }
-
-
 def parse_args():
+    default_relationship_dependee_value = "Node"
+    default_relationship_labeldistance_value = 2
+
     parser = argparse.ArgumentParser(
         description='Extracts class diagram from header file and builds its representation and'
                     'relationship (optionally) in graphviz dot language.')
 
-    parser.add_argument('-f', '--file-path', help='Path to cpp source file.', required=True)
-    parser.add_argument('-c', '--class-name',
-                        help='Path to json config file. By default would be extracted from file '
-                             'name')
-    parser.add_argument('-t', '--relationship-type',
+    parser.add_argument('-f', '--file-path', type=str, required=True,
+                        help='Path to file which contains class definition.')
+    parser.add_argument('-c', '--class-name', type=str,
+                        help='Path to json config file. By default would be extracted from '
+                             'FILE_PATH')
+
+    parser.add_argument('-t', '--relationship-type', type=str,
                         choices=get_uml_class_diagram_relationships(),
-                        help='Sets type of relationship')
-    parser.add_argument('-l', '--relationship-label', help='Sets relationship label')
-    parser.add_argument('-d', '--relationship-dependee', help='Sets relationship dependee name')
+                        help='Sets type of relationship '
+                             '(if not set relationship would not be build)')
+    parser.add_argument('-d', '--relationship-dependee', type=str,
+                        help='Sets relationship dependee name (if RELATIONSHIP_TYPE is set; '
+                             'By default = "{}")'.format(default_relationship_dependee_value))
+    parser.add_argument('-tl', '--relationship-taillabel', type=str,
+                        help='Sets relationship tail label '
+                             '(if RELATIONSHIP_TYPE in ["aggregation", "composition]")')
+    parser.add_argument('-hl', '--relationship-headlabel', type=str,
+                        help='Sets relationship head label '
+                             '(if RELATIONSHIP_TYPE == "composition")')
+    parser.add_argument('-ld', '--relationship-labeldistance', type=int,
+                        help='Sets relationship label distance '
+                             '(if RELATIONSHIP_TYPE == "composition"; '
+                             'By default = "{}")'.format(default_relationship_labeldistance_value))
 
     args = parser.parse_args()
 
@@ -47,7 +49,26 @@ def parse_args():
         file = os.path.split(args.file_path)[1]
         args.class_name = os.path.splitext(file)[0]
 
+    if not args.relationship_dependee:
+        args.relationship_dependee = default_relationship_dependee_value
+
+    if not args.relationship_labeldistance:
+        args.relationship_labeldistance = default_relationship_labeldistance_value
+
     return args
+
+
+def parse_cpp_class(cpp_file_path, class_name):
+
+    if not os.path.isfile(cpp_file_path):
+        raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
+
+    parsed_cpp_file = CppHeaderParser.CppHeader(cpp_file_path)
+
+    if not class_name in parsed_cpp_file.classes:
+        raise ValueError("Error: No such class: '{}'".format(class_name))
+
+    return parsed_cpp_file.classes[class_name]
 
 
 # WORKAROUND
@@ -222,32 +243,15 @@ def build_dot_node(label):
     return node_template.format(label)
 
 
-def build_dot_relationship(depender, dependee, rtype, label=""):
-    relationships = get_uml_class_diagram_relationships_dot_representation()
-    relationship = relationships[rtype]
-    if rtype == "aggregation" or rtype == "association":
-        if label:
-            label_attr = "label = \"{}\"".format(label)
-            relationship.format(label_attr)
-
-    return "{} -> {} {}".format(depender, dependee, relationship)
-
-
-def build_dot_class_uml_representation(path_to_header, class_name):
-    if not os.path.isfile(path_to_header):
-        print "Error: No such file"
-        sys.exit(1)
-
+def build_full_class_name(path_to_header, class_name):
     try:
         cppHeader = CppHeaderParser.CppHeader(path_to_header)
     except CppHeaderParser.CppParseError as e:
         print(e)
         sys.exit(1)
 
-    if not class_name in cppHeader.classes:
-        return "Error: No such class"
 
-    cpp_class = cppHeader.classes[class_name]
+def build_dot_class_uml_representation(cpp_class):
     class_caption = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
     if "template" in cpp_class:
         class_caption += " " + cpp_class["template"]
@@ -272,15 +276,50 @@ def build_dot_class_uml_representation(path_to_header, class_name):
     return build_dot_node(html_uml_class_representation)
 
 
+def get_uml_class_diagram_relationships_dot_representation():
+    return {
+        "association": '[style="solid", arrowhead="vee"]; // association',
+        "dependency":  '[style="dashed", arrowhead="vee"]; // dependency',
+        "aggregation": '[style="solid", dir="both", taillabel="{}", arrowtail="vee", '
+                       'arrowhead="odiamond"]; // aggregation',
+        "composition": '[style="solid", dir="both", taillabel="{}", arrowtail="vee", '
+                       'headlabel="{}", arrowhead="diamond", labeldistance="{}"]; // composition',
+        "inheritance": '[style="solid", arrowhead="onormal"];} // inheritance'
+    }
+
+
+def build_dot_relationship(depender, dependee, rtype, taillabel="", headlabel="", labeldistance=2):
+    relationships = get_uml_class_diagram_relationships_dot_representation()
+    relationship = relationships[rtype]
+
+    if rtype == "aggregation":
+        relationship = relationship.format(taillabel)
+    elif rtype == "composition":
+        relationship = relationship.format(taillabel, headlabel, labeldistance)
+
+    return "{} -> {} {}".format(depender, dependee, relationship)
+
+
 def main(argv):
     args = parse_args()
 
-    node = build_dot_class_uml_representation(args.file_path, args.class_name)
-    relationship = build_dot_relationship(args.class_name, args.relationship_dependee,
-                                          args.relationship_type, args.relationship_label)
+    try:
+        cpp_class = parse_cpp_class(args.file_path, args.class_name)
+    except ValueError as error:
+        print(error)
+        return 1
 
+    node = build_dot_class_uml_representation(cpp_class)
     print node
-    print relationship
+
+    if args.relationship_type:
+        relationship = build_dot_relationship(args.class_name,
+                                              args.relationship_dependee,
+                                              args.relationship_type,
+                                              args.relationship_taillabel,
+                                              args.relationship_headlabel,
+                                              args.relationship_labeldistance)
+        print relationship
 
 
 if __name__ == "__main__":
