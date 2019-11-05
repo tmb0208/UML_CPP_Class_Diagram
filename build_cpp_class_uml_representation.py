@@ -254,7 +254,7 @@ def build_dot_node(class_node_id, label):
     return node_template.format(class_node_id, label)
 
 
-def build_dot_class_uml_representation(class_node_id, full_class_name, properties, methods):
+def build_class_uml_representation(full_class_name, properties, methods):
     access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
 
     uml_properties_representation = build_uml_properties_representation(
@@ -267,12 +267,9 @@ def build_dot_class_uml_representation(class_node_id, full_class_name, propertie
     html_uml_methods_representation = build_html_uml_methods_representation(
         uml_methods_representation)
 
-    html_uml_class_representation = build_html_uml_class_representation(
-        full_class_name,
-        html_uml_properties_representation,
-        html_uml_methods_representation)
-
-    return build_dot_node(class_node_id, html_uml_class_representation)
+    return build_html_uml_class_representation(full_class_name,
+                                               html_uml_properties_representation,
+                                               html_uml_methods_representation)
 
 
 def get_uml_class_diagram_relationships_dot_representation():
@@ -311,8 +308,10 @@ def main(argv):
     full_class_name = build_full_class_name(cpp_class)
     class_node_id = replace_dot_id_specific_characters(full_class_name)
 
-    node = build_dot_class_uml_representation(
-        class_node_id, full_class_name, cpp_class["properties"], cpp_class["methods"])
+    class_uml_representation = build_class_uml_representation(
+        full_class_name, cpp_class["properties"], cpp_class["methods"])
+
+    node = build_dot_node(class_node_id, class_uml_representation)
     print node
 
     if args.relationship_type:
