@@ -82,7 +82,6 @@ def build_full_class_name(cpp_class):
     result = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
     if "template" in cpp_class:
         result += " " + cpp_class["template"]
-    result = replace_html_specific_characters(result)
     return result
 
 
@@ -121,8 +120,7 @@ def build_uml_method_parameters_representation(method):
 
     for parameter in method["parameters"]:
         results.append(
-            representation.format(parameter["name"],
-                                  parameter["type"]))
+            representation.format(parameter["name"], parameter["type"]))
 
     return ', '.join(results)
 
@@ -161,12 +159,11 @@ def build_uml_methods_representation(methods, access_modificator_representations
 
     for acc_mod, acc_mod_rep in access_modificator_representations.items():
         for method in methods[acc_mod]:
-            result = representation.format(
-                acc_mod_rep,
-                build_uml_method_name_representation(method),
-                build_uml_method_parameters_representation(method),
-                build_uml_method_return_type_representation(method),
-                build_uml_method_specificators_representation(method))
+            result = representation.format(acc_mod_rep,
+                                           build_uml_method_name_representation(method),
+                                           build_uml_method_parameters_representation(method),
+                                           build_uml_method_return_type_representation(method),
+                                           build_uml_method_specificators_representation(method))
 
             result = result.rstrip(": ")
             results.append(result)
@@ -197,31 +194,31 @@ def format_if_too_long(uml_method_representation, max_chars, spacing=8):
     return uml_method_representation
 
 
-def build_html_uml_properties_representation(uml_properties_representation):
+def format_uml_properties_to_html(properties):
     results = []
 
-    for r in uml_properties_representation:
-        r = replace_html_specific_characters(r)
-        r = underline_if_static(r)
-        results.append(r)
+    for p in properties:
+        result = replace_html_specific_characters(p)
+        result = underline_if_static(result)
+        results.append(result)
 
     return results
 
 
-def build_html_uml_methods_representation(uml_methods_representation):
+def format_uml_methods_to_html(methods):
     results = []
 
-    for r in uml_methods_representation:
-        r = replace_html_specific_characters(r)
-        r = underline_if_static(r)
-        r = italic_if_pure_virtual(r)
-        r = format_if_too_long(r, 100)
-        results.append(r)
+    for m in methods:
+        result = replace_html_specific_characters(m)
+        result = underline_if_static(result)
+        result = italic_if_pure_virtual(result)
+        result = format_if_too_long(result, 100)
+        results.append(result)
 
     return results
 
 
-def build_html_class_representation(full_name, properties, methods):
+def format_uml_class_to_html(full_name, uml_properties, uml_methods):
     template = """<<table border="0" cellspacing="0" cellborder="1">
         <tr>
             <td>{}</td>
@@ -233,6 +230,10 @@ def build_html_class_representation(full_name, properties, methods):
             <td ALIGN="left" BALIGN="left">{}</td>
         </tr>
     </table>>"""
+
+    full_name = replace_html_specific_characters(full_name)
+    properties = format_uml_properties_to_html(uml_properties)
+    methods = format_uml_properties_to_html(uml_methods)
 
     return template.format(full_name, '<br />'.join(properties), '<br />'.join(methods))
 
@@ -259,6 +260,14 @@ def build_properties_and_methods_uml_representation(properties, methods):
         methods, access_modificator_representations)
 
     return properties_representation, methods_representation
+
+
+def build_uml_class_diagram_node(class_node_id, full_class_name, properties, methods):
+    uml_properties, uml_methods = build_properties_and_methods_uml_representation(
+        properties, methods)
+    class_content = format_uml_class_to_html(full_class_name, uml_properties, uml_methods)
+
+    return build_dot_node(class_node_id, class_content)
 
 
 def get_uml_class_diagram_relationships_dot_representation():
@@ -297,19 +306,8 @@ def main(argv):
     full_class_name = build_full_class_name(cpp_class)
     class_node_id = replace_dot_id_specific_characters(full_class_name)
 
-    uml_properties, uml_methods = build_properties_and_methods_uml_representation(
-        cpp_class["properties"], cpp_class["methods"])
-
-    html_properties_representation = build_html_uml_properties_representation(
-        uml_properties)
-    html_methods_representation = build_html_uml_methods_representation(
-        uml_methods)
-
-    html_class = build_html_class_representation(full_class_name,
-                                                 html_properties_representation,
-                                                 html_methods_representation)
-
-    node = build_dot_node(class_node_id, html_class)
+    node = build_uml_class_diagram_node(
+        class_node_id, full_class_name, cpp_class["properties"], cpp_class["methods"])
     print node
 
     if args.relationship_type:
