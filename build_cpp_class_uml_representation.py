@@ -59,7 +59,6 @@ def parse_args():
 
 
 def parse_cpp_class(cpp_file_path, class_name):
-
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
@@ -69,6 +68,22 @@ def parse_cpp_class(cpp_file_path, class_name):
         raise ValueError("Error: No such class: '{}'".format(class_name))
 
     return parsed_cpp_file.classes[class_name]
+
+
+def replace_html_specific_characters(string):
+    return string.replace("&", "&#38;").replace("<", "&#60;").replace(">", "&#62;")
+
+
+def replace_dot_id_specific_characters(string):
+    return string.replace(":", "_").replace("<", "_").replace(">", "_".replace(" ", "_"))
+
+
+def build_full_class_name(cpp_class):
+    result = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
+    if "template" in cpp_class:
+        result += " " + cpp_class["template"]
+    result = replace_html_specific_characters(result)
+    return result
 
 
 # WORKAROUND
@@ -182,10 +197,6 @@ def format_if_too_long(uml_method_representation, max_chars, spacing=8):
     return uml_method_representation
 
 
-def replace_html_specific_characters(string):
-    return string.replace("&", "&#38;").replace("<", "&#60;").replace(">", "&#62;")
-
-
 def build_html_uml_properties_representation(uml_properties_representation):
     results = []
 
@@ -230,8 +241,8 @@ def build_html_uml_class_representation(class_caption,
                                        '<br />'.join(html_uml_methods_representation))
 
 
-def build_dot_node(label):
-    node_template = """[
+def build_dot_node(class_node_id, label):
+    node_template = """{} [
     shape=none
     margin=0
     style="filled",
@@ -240,28 +251,16 @@ def build_dot_node(label):
     label = {}
     ];"""
 
-    return node_template.format(label)
+    return node_template.format(class_node_id, label)
 
 
-def build_full_class_name(path_to_header, class_name):
-    try:
-        cppHeader = CppHeaderParser.CppHeader(path_to_header)
-    except CppHeaderParser.CppParseError as e:
-        print(e)
-        sys.exit(1)
-
-
-def build_dot_class_uml_representation(cpp_class):
-    class_caption = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
-    if "template" in cpp_class:
-        class_caption += " " + cpp_class["template"]
-    class_caption = replace_html_specific_characters(class_caption)
-
+def build_dot_class_uml_representation(class_node_id, full_class_name, properties, methods):
     access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
+
     uml_properties_representation = build_uml_properties_representation(
-        cpp_class["properties"], access_modificator_representations)
+        properties, access_modificator_representations)
     uml_methods_representation = build_uml_methods_representation(
-        cpp_class["methods"], access_modificator_representations)
+        methods, access_modificator_representations)
 
     html_uml_properties_representation = build_html_uml_properties_representation(
         uml_properties_representation)
@@ -269,11 +268,11 @@ def build_dot_class_uml_representation(cpp_class):
         uml_methods_representation)
 
     html_uml_class_representation = build_html_uml_class_representation(
-        class_caption,
+        full_class_name,
         html_uml_properties_representation,
         html_uml_methods_representation)
 
-    return build_dot_node(html_uml_class_representation)
+    return build_dot_node(class_node_id, html_uml_class_representation)
 
 
 def get_uml_class_diagram_relationships_dot_representation():
@@ -309,11 +308,15 @@ def main(argv):
         print(error)
         return 1
 
-    node = build_dot_class_uml_representation(cpp_class)
+    full_class_name = build_full_class_name(cpp_class)
+    class_node_id = replace_dot_id_specific_characters(full_class_name)
+
+    node = build_dot_class_uml_representation(
+        class_node_id, full_class_name, cpp_class["properties"], cpp_class["methods"])
     print node
 
     if args.relationship_type:
-        relationship = build_dot_relationship(args.class_name,
+        relationship = build_dot_relationship(class_node_id,
                                               args.relationship_dependee,
                                               args.relationship_type,
                                               args.relationship_taillabel,
