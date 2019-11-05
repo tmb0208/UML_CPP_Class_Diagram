@@ -221,10 +221,8 @@ def build_html_uml_methods_representation(uml_methods_representation):
     return results
 
 
-def build_html_uml_class_representation(class_caption,
-                                        html_uml_properties_representation,
-                                        html_uml_methods_representation):
-    label_value_template = """<<table border="0" cellspacing="0" cellborder="1">
+def build_html_class_representation(full_name, properties, methods):
+    template = """<<table border="0" cellspacing="0" cellborder="1">
         <tr>
             <td>{}</td>
         </tr>
@@ -236,9 +234,7 @@ def build_html_uml_class_representation(class_caption,
         </tr>
     </table>>"""
 
-    return label_value_template.format(class_caption,
-                                       '<br />'.join(html_uml_properties_representation),
-                                       '<br />'.join(html_uml_methods_representation))
+    return template.format(full_name, '<br />'.join(properties), '<br />'.join(methods))
 
 
 def build_dot_node(class_node_id, label):
@@ -267,9 +263,9 @@ def build_class_uml_representation(full_class_name, properties, methods):
     html_uml_methods_representation = build_html_uml_methods_representation(
         uml_methods_representation)
 
-    return build_html_uml_class_representation(full_class_name,
-                                               html_uml_properties_representation,
-                                               html_uml_methods_representation)
+    return build_html_class_representation(full_class_name,
+                                           html_uml_properties_representation,
+                                           html_uml_methods_representation)
 
 
 def get_uml_class_diagram_relationships_dot_representation():
