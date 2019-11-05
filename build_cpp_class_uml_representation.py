@@ -14,15 +14,15 @@ def get_uml_class_diagram_relationships():
 def get_uml_class_diagram_relationships_dot_representation():
     return {
         "association":
-            """[style="solid", arrowhead="vee"];""",
+            """[style="solid", arrowhead="vee"]; // association""",
         "dependency":
-            """[style="dashed", arrowhead="vee"];""",
+            """[style="dashed", arrowhead="vee"]; // dependency""",
         "aggregation":
-            """[style="solid", {}, arrowhead="odiamond", arrowtail="vee", dir="both"];""",
+            """[style="solid", {}, arrowhead="odiamond", arrowtail="vee", dir="both"]; // aggregation""",
         "composition":
-            """[style="solid", {}, arrowhead="diamond", arrowtail="vee", dir="both"];""",
+            """[style="solid", {}, arrowhead="diamond", arrowtail="vee", dir="both"]; // composition""",
         "inheritance":
-            """[style="solid", arrowhead="onormal"];}"""
+            """[style="solid", arrowhead="onormal"];} // inheritance"""
     }
 
 
@@ -234,6 +234,10 @@ def build_dot_relationship(depender, dependee, rtype, label=""):
 
 
 def build_dot_class_uml_representation(path_to_header, class_name):
+    if not os.path.isfile(path_to_header):
+        print "Error: No such file"
+        sys.exit(1)
+
     try:
         cppHeader = CppHeaderParser.CppHeader(path_to_header)
     except CppHeaderParser.CppParseError as e:
