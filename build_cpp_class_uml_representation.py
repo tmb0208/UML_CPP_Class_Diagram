@@ -250,22 +250,15 @@ def build_dot_node(class_node_id, label):
     return node_template.format(class_node_id, label)
 
 
-def build_class_uml_representation(full_class_name, properties, methods):
+def build_properties_and_methods_uml_representation(properties, methods):
     access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
 
-    uml_properties_representation = build_uml_properties_representation(
+    properties_representation = build_uml_properties_representation(
         properties, access_modificator_representations)
-    uml_methods_representation = build_uml_methods_representation(
+    methods_representation = build_uml_methods_representation(
         methods, access_modificator_representations)
 
-    html_uml_properties_representation = build_html_uml_properties_representation(
-        uml_properties_representation)
-    html_uml_methods_representation = build_html_uml_methods_representation(
-        uml_methods_representation)
-
-    return build_html_class_representation(full_class_name,
-                                           html_uml_properties_representation,
-                                           html_uml_methods_representation)
+    return properties_representation, methods_representation
 
 
 def get_uml_class_diagram_relationships_dot_representation():
@@ -304,10 +297,19 @@ def main(argv):
     full_class_name = build_full_class_name(cpp_class)
     class_node_id = replace_dot_id_specific_characters(full_class_name)
 
-    class_uml_representation = build_class_uml_representation(
-        full_class_name, cpp_class["properties"], cpp_class["methods"])
+    uml_properties, uml_methods = build_properties_and_methods_uml_representation(
+        cpp_class["properties"], cpp_class["methods"])
 
-    node = build_dot_node(class_node_id, class_uml_representation)
+    html_properties_representation = build_html_uml_properties_representation(
+        uml_properties)
+    html_methods_representation = build_html_uml_methods_representation(
+        uml_methods)
+
+    html_class = build_html_class_representation(full_class_name,
+                                                 html_properties_representation,
+                                                 html_methods_representation)
+
+    node = build_dot_node(class_node_id, html_class)
     print node
 
     if args.relationship_type:
