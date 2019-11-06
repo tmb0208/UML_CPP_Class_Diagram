@@ -232,7 +232,7 @@ def format_uml_class_to_html(full_name, uml_properties, uml_methods):
 
     full_name = replace_html_specific_characters(full_name)
     properties = format_uml_properties_to_html(uml_properties)
-    methods = format_uml_properties_to_html(uml_methods)
+    methods = format_uml_methods_to_html(uml_methods)
 
     return template.format(full_name, '<br />'.join(properties), '<br />'.join(methods))
 
