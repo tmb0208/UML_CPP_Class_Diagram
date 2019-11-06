@@ -30,18 +30,17 @@ def parse_args():
                         help='Sets type of relationship '
                              '(if not set relationship would not be build)')
     parser.add_argument('-d', '--relationship-dependee', type=str,
-                        help='Sets relationship dependee name (if RELATIONSHIP_TYPE is set; '
-                             'By default = "{}")'.format(default_relationship_dependee_value))
+                        help='Sets relationship dependee name (by default = "{}")'.format(
+                            default_relationship_dependee_value))
     parser.add_argument('-tl', '--relationship-taillabel', type=str,
-                        help='Sets relationship tail label '
-                             '(if RELATIONSHIP_TYPE in ["aggregation", "composition]")')
+                        help='Sets relationship tail label')
+    parser.add_argument('-l', '--relationship-label', type=str,
+                        help='Sets relationship label')
     parser.add_argument('-hl', '--relationship-headlabel', type=str,
-                        help='Sets relationship head label '
-                             '(if RELATIONSHIP_TYPE == "composition")')
+                        help='Sets relationship head label')
     parser.add_argument('-ld', '--relationship-labeldistance', type=int,
-                        help='Sets relationship label distance '
-                             '(if RELATIONSHIP_TYPE == "composition"; '
-                             'By default = "{}")'.format(default_relationship_labeldistance_value))
+                        help='Sets relationship label distance (by default = "{}")'.format(
+                            default_relationship_labeldistance_value))
 
     args = parser.parse_args()
 
@@ -270,28 +269,40 @@ def build_uml_class_diagram_node(class_node_id, full_class_name, properties, met
     return build_dot_node(class_node_id, class_content)
 
 
-def get_uml_class_diagram_relationships_dot_representation():
-    return {
-        "association": '[style="solid", arrowhead="vee"]; // association',
-        "dependency":  '[style="dashed", arrowhead="vee"]; // dependency',
-        "aggregation": '[style="solid", dir="both", taillabel="{}", arrowtail="vee", '
-                       'arrowhead="odiamond"]; // aggregation',
-        "composition": '[style="solid", dir="both", taillabel="{}", arrowtail="vee", '
-                       'headlabel="{}", arrowhead="diamond", labeldistance="{}"]; // composition',
-        "inheritance": '[style="solid", arrowhead="onormal"];} // inheritance'
+def build_edge_attributes(rtype, taillabel=None, label=None, headlabel=None, labeldistance=None):
+    relationships = {
+        "association":
+            '[style="solid", taillabel="{}", label="{}", headlabel="{}", '
+            'arrowhead="vee", labeldistance="{}"]; // association',
+        "dependency":
+            '[style="dashed", taillabel="{}", label="{}", headlabel="{}", '
+        'arrowhead="vee", labeldistance="{}"]; // dependency',
+        "aggregation":
+            '[style="solid", dir="both", taillabel="{}", arrowtail="odiamond", '
+            'label="{}", headlabel="{}", arrowhead="vee", labeldistance="{}"]; // aggregation',
+        "composition":
+            '[style="solid", dir="both", taillabel="{}", arrowtail="diamond", '
+            'label="{}", headlabel="{}", arrowhead="vee", labeldistance="{}"]; // composition',
+        "inheritance":
+            '[style="solid", arrowhead="onormal"]; // inheritance'
     }
 
+    if not rtype in relationships:
+        return None
 
-def build_dot_relationship(depender, dependee, rtype, taillabel="", headlabel="", labeldistance=2):
-    relationships = get_uml_class_diagram_relationships_dot_representation()
-    relationship = relationships[rtype]
+    taillabel = taillabel if taillabel else ""
+    label = label if label else ""
+    headlabel = headlabel if headlabel else ""
+    labeldistance = labeldistance if labeldistance else ""
 
-    if rtype == "aggregation":
-        relationship = relationship.format(taillabel)
-    elif rtype == "composition":
-        relationship = relationship.format(taillabel, headlabel, labeldistance)
+    return relationships[rtype].format(taillabel, label, headlabel, labeldistance)
 
-    return "{} -> {} {}".format(depender, dependee, relationship)
+
+def build_relationship(depender, dependee, rtype,
+                       taillabel=None, label=None, headlabel=None, labeldistance=None):
+    edge_attributes = build_edge_attributes(rtype, taillabel, label, headlabel, labeldistance)
+
+    return "{} -> {} {}".format(depender, dependee, edge_attributes)
 
 
 def main(argv):
@@ -311,12 +322,13 @@ def main(argv):
     print node
 
     if args.relationship_type:
-        relationship = build_dot_relationship(class_node_id,
-                                              args.relationship_dependee,
-                                              args.relationship_type,
-                                              args.relationship_taillabel,
-                                              args.relationship_headlabel,
-                                              args.relationship_labeldistance)
+        relationship = build_relationship(class_node_id,
+                                          args.relationship_dependee,
+                                          args.relationship_type,
+                                          args.relationship_taillabel,
+                                          args.relationship_label,
+                                          args.relationship_headlabel,
+                                          args.relationship_labeldistance)
         print relationship
 
 
