@@ -20,26 +20,30 @@ def get_uml_class_diagram_relationships():
 
 
 def parse_args():
-    default_relationship_dependee_value = "Node"
     default_relationship_labeldistance_value = 2
 
     parser = argparse.ArgumentParser(
-        description='Extracts class diagram from header file and builds its representation and'
-                    'relationship (optionally) in graphviz dot language.')
+        description='Builds uml class diagram from header file and/or relationship between '
+                    'classes which are represented in graphviz dot language. '
+                    'Elther FILE_PATH or RELATIONSHIP_TYPE is required')
 
-    parser.add_argument('-f', '--file-path', type=str, required=True,
+    parser.add_argument('-f', '--file-path', type=str,
                         help='Path to file which contains class definition.')
     parser.add_argument('-c', '--class-name', type=str,
-                        help='Path to json config file. By default would be extracted from '
-                             'FILE_PATH')
+                        help='Name of class to extract (Use "::" for nested classes). '
+                             'By default basename of FILE_PATH would be set')
 
     parser.add_argument('-t', '--relationship-type', type=str,
                         choices=get_uml_class_diagram_relationships(),
-                        help='Sets type of relationship '
-                             '(if not set relationship would not be build)')
-    parser.add_argument('-d', '--relationship-dependee', type=str,
-                        help='Sets relationship dependee name (by default = "{}")'.format(
-                            default_relationship_dependee_value))
+                        help='Sets type of relationship. '
+                             'If it does not set relationship representation would not be build. '
+                             'If it is set RELATIONSHIP_DEPENDEE should be set. '
+                             'If FILE_PATH is not set then RELATIONSHIP_DEPENDER should be set.')
+    parser.add_argument('-dr', '--relationship-depender', type=str,
+                        help='Sets relationship depender name. '
+                             'By default CLASS_NAME would be set')
+    parser.add_argument('-de', '--relationship-dependee', type=str,
+                        help='Sets relationship dependee name')
     parser.add_argument('-tl', '--relationship-taillabel', type=str,
                         help='Sets relationship tail label')
     parser.add_argument('-l', '--relationship-label', type=str,
@@ -47,17 +51,30 @@ def parse_args():
     parser.add_argument('-hl', '--relationship-headlabel', type=str,
                         help='Sets relationship head label')
     parser.add_argument('-ld', '--relationship-labeldistance', type=int,
-                        help='Sets relationship label distance (by default = "{}")'.format(
-                            default_relationship_labeldistance_value))
+                        help='Sets relationship label distance .'
+                             'By default = "{}")'.format(
+                                 default_relationship_labeldistance_value))
 
     args = parser.parse_args()
 
-    if not args.class_name:
+    # Check error
+    err = None
+    if not args.file_path and not args.relationship_type:
+        err = "Error: Neither FILE_PATH nor RELATIONSHIP_TYPE is set"
+    elif args.relationship_type and not args.relationship_dependee:
+        err = "Error: RELATIONSHIP_TYPE is set, but RELATIONSHIP_DEPENDEE is not"
+    elif args.relationship_type and not args.file_path and not args.relationship_depender:
+        err = "Error: RELATIONSHIP_TYPE is set, but Neither FILE_PATH nor RELATIONSHIP_DEPENDER is"
+
+    if err:
+        parser.print_help()
+        print err
+        return None
+
+    # Set defaults
+    if not args.class_name and args.file_path:
         file = os.path.split(args.file_path)[1]
         args.class_name = os.path.splitext(file)[0]
-
-    if not args.relationship_dependee:
-        args.relationship_dependee = default_relationship_dependee_value
 
     if not args.relationship_labeldistance:
         args.relationship_labeldistance = default_relationship_labeldistance_value
@@ -326,22 +343,29 @@ def build_relationship(depender, dependee, rtype,
 
 def main(argv):
     args = parse_args()
-
-    try:
-        cpp_class = parse_cpp_class(args.file_path, args.class_name)
-    except ValueError as error:
-        print(error)
+    if not args:
+        print "Error: Argument parser error"
         return 1
 
-    full_class_name = build_full_class_name(cpp_class)
-    class_node_id = replace_dot_id_specific_characters(full_class_name)
+    if args.file_path:
+        try:
+            cpp_class = parse_cpp_class(args.file_path, args.class_name)
+        except ValueError as error:
+            print(error)
+            return 1
 
-    node = build_uml_class_diagram_node(
-        class_node_id, full_class_name, cpp_class["properties"], cpp_class["methods"])
-    print node
+        full_class_name = build_full_class_name(cpp_class)
+        class_node_id = replace_dot_id_specific_characters(full_class_name)
+
+        node = build_uml_class_diagram_node(
+            class_node_id, full_class_name, cpp_class["properties"], cpp_class["methods"])
+        print node
 
     if args.relationship_type:
-        relationship = build_relationship(class_node_id,
+        if not args.relationship_depender:
+            args.relationship_depender = class_node_id
+
+        relationship = build_relationship(args.relationship_depender,
                                           args.relationship_dependee,
                                           args.relationship_type,
                                           args.relationship_taillabel,
