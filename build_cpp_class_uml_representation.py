@@ -91,7 +91,8 @@ def parse_cpp_class(cpp_file_path, class_name):
     enablePrint()
 
     if not class_name in parsed_cpp_file.classes:
-        raise ValueError("Error: No such class: '{}'".format(class_name))
+        raise ValueError("Error: No such class: '{}'. Suggested classes: {}".format(
+            class_name, parsed_cpp_file.classes.keys()))
 
     return parsed_cpp_file.classes[class_name]
 
