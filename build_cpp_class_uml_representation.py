@@ -83,8 +83,15 @@ def replace_html_specific_characters(string):
     return string.replace("&", "&#38;").replace("<", "&#60;").replace(">", "&#62;")
 
 
+def replace_multiple(string, old_arr, new):
+    for old in old_arr:
+        string = string.replace(old, new)
+
+    return string
+
+
 def replace_dot_id_specific_characters(string):
-    return string.replace(":", "_").replace("<", "_").replace(">", "_".replace(" ", "_"))
+    return replace_multiple(string, [":", "<", ">", " ", ",", "="], "_")
 
 
 def build_full_class_name(cpp_class):
