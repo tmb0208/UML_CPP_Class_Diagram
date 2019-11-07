@@ -111,10 +111,21 @@ def replace_dot_id_specific_characters(string):
     return replace_multiple(string, [":", "<", ">", " ", ",", "="], "_")
 
 
+def replace_new_line(string):
+    return string.replace("\n", "").replace("\r", "")
+
+
+def replace_extra_spaces(string):
+    return ' '.join(string.split())
+
+
 def build_full_class_name(cpp_class):
     result = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
     if "template" in cpp_class:
         result += " " + cpp_class["template"]
+
+    result = replace_new_line(result)
+    result = replace_extra_spaces(result)
     return result
 
 
