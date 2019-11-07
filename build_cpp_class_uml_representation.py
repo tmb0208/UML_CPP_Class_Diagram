@@ -8,7 +8,7 @@ import os
 
 
 def get_uml_class_diagram_relationships():
-    return ["association", "dependency", "aggregation", "composition", "inheritance"]
+    return ["association", "dependency", "aggregation", "composition", "inheritance", "realization"]
 
 
 def parse_args():
@@ -284,7 +284,9 @@ def build_edge_attributes(rtype, taillabel=None, label=None, headlabel=None, lab
             '[style="solid", dir="both", taillabel="{}", arrowtail="diamond", '
             'label="{}", headlabel="{}", arrowhead="vee", labeldistance="{}"]; // composition',
         "inheritance":
-            '[style="solid", arrowhead="onormal"]; // inheritance'
+            '[style="solid", arrowhead="onormal"]; // inheritance',
+        "realization":
+            '[style="dashed", arrowhead="onormal"]; // realization'
     }
 
     if not rtype in relationships:
