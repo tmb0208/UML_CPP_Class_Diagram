@@ -108,10 +108,6 @@ def replace_multiple(string, old_arr, new):
     return string
 
 
-def replace_dot_id_specific_characters(string):
-    return replace_multiple(string, [":", "<", ">", " ", ",", "="], "_")
-
-
 def replace_new_line(string):
     return string.replace("\n", "").replace("\r", "")
 
@@ -264,17 +260,17 @@ def format_uml_methods_to_html(methods):
 
 
 def format_uml_class_to_html(full_name, uml_properties, uml_methods):
-    template = """<<table border="0" cellspacing="0" cellborder="1">
-        <tr>
-            <td>{}</td>
-        </tr>
-        <tr>
-            <td ALIGN="left" BALIGN="left">{}</td>
-        </tr>
-        <tr>
-            <td ALIGN="left" BALIGN="left">{}</td>
-        </tr>
-    </table>>"""
+    template = ('<<table border="0" cellspacing="0" cellborder="1">\n'
+                '\t<tr>\n'
+                '\t\t<td>{}</td>\n'
+                '\t</tr>\n'
+                '\t<tr>\n'
+                '\t\t<td ALIGN="left" BALIGN="left">{}</td>\n'
+                '\t</tr>\n'
+                '\t<tr>\n'
+                '\t\t<td ALIGN="left" BALIGN="left">{}</td>\n'
+                '\t</tr>\n'
+                '</table>>\n')
 
     full_name = replace_html_specific_characters(full_name)
     properties = format_uml_properties_to_html(uml_properties)
@@ -283,17 +279,10 @@ def format_uml_class_to_html(full_name, uml_properties, uml_methods):
     return template.format(full_name, '<br />'.join(properties), '<br />'.join(methods))
 
 
-def build_dot_node(class_node_id, label):
-    node_template = """{} [
-    shape=none
-    margin=0
-    style="filled",
-    fillcolor="grey75",
-    fontcolor="black",
-    label = {}
-    ];"""
+def build_dot_node(full_class_name, label):
+    template = "\"{}\" [\n\tlabel = \n{}];"
 
-    return node_template.format(class_node_id, label)
+    return template.format(full_class_name, label)
 
 
 def build_properties_and_methods_uml_representation(properties, methods):
@@ -307,12 +296,12 @@ def build_properties_and_methods_uml_representation(properties, methods):
     return properties_representation, methods_representation
 
 
-def build_uml_class_diagram_node(class_node_id, full_class_name, properties, methods):
+def build_uml_class_diagram_node(full_class_name, properties, methods):
     uml_properties, uml_methods = build_properties_and_methods_uml_representation(
         properties, methods)
     class_content = format_uml_class_to_html(full_class_name, uml_properties, uml_methods)
 
-    return build_dot_node(class_node_id, class_content)
+    return build_dot_node(full_class_name, class_content)
 
 
 def build_edge_attributes(rtype, taillabel=None, label=None, headlabel=None, labeldistance=None):
@@ -350,7 +339,7 @@ def build_relationship(depender, dependee, rtype,
                        taillabel=None, label=None, headlabel=None, labeldistance=None):
     edge_attributes = build_edge_attributes(rtype, taillabel, label, headlabel, labeldistance)
 
-    return "{} -> {} {}".format(depender, dependee, edge_attributes)
+    return "\"{}\" -> \"{}\" {}".format(depender, dependee, edge_attributes)
 
 
 def main(argv):
@@ -367,15 +356,14 @@ def main(argv):
             return 1
 
         full_class_name = build_full_class_name(cpp_class)
-        class_node_id = replace_dot_id_specific_characters(full_class_name)
 
         node = build_uml_class_diagram_node(
-            class_node_id, full_class_name, cpp_class["properties"], cpp_class["methods"])
+            full_class_name, cpp_class["properties"], cpp_class["methods"])
         print node
 
     if args.relationship_type:
         if not args.relationship_depender:
-            args.relationship_depender = class_node_id
+            args.relationship_depender = full_class_name
 
         relationship = build_relationship(args.relationship_depender,
                                           args.relationship_dependee,
