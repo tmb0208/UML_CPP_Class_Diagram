@@ -7,6 +7,14 @@ import argparse
 import os
 
 
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+
+def enablePrint():
+    sys.stdout = sys.__stdout__
+
+
 def get_uml_class_diagram_relationships():
     return ["association", "dependency", "aggregation", "composition", "inheritance", "realization"]
 
@@ -61,7 +69,9 @@ def parse_cpp_class(cpp_file_path, class_name):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
+    blockPrint()
     parsed_cpp_file = CppHeaderParser.CppHeader(cpp_file_path)
+    enablePrint()
 
     if not class_name in parsed_cpp_file.classes:
         raise ValueError("Error: No such class: '{}'".format(class_name))
