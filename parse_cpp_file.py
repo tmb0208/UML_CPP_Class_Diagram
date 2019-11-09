@@ -69,20 +69,6 @@ def match_template(declaration):
     return None
 
 
-def match_virtual(method_declaration):
-    if method_declaration.find("virtual") != -1:
-        return "virtual"
-
-    return None
-
-
-def match_static(method_declaration):
-    if method_declaration.find("static") != -1:
-        return "static"
-
-    return None
-
-
 def match_method_parameters(method_declaration, method_name):
     match = re.search(r"{}\s*\(".format(method_name), method_declaration)
     if not match:
@@ -109,10 +95,6 @@ def match_method_type(method_declaration, method_name):
     template = match_template(method_declaration)
     if template:
         result = method_declaration.replace(template, "")
-
-    virtual = match_virtual(method_declaration)
-    if virtual:
-        result = method_declaration.replace(virtual, "")
 
     match = re.search(r"{}\s*\(".format(method_name), result)
     if not match:
@@ -176,17 +158,32 @@ def split_method_parameters(parameters):
 
 
 def build_propery_node(declaration, name=None):
-
     name_match = re.search(
         r"\s*{}\s*(=|$)".format(name if name else r"[a-zA-Z_][a-zA-Z0-9_]*"), declaration)
     if not name_match:
         raise ValueError("Could not match declaration name: {}". format(declaration))
 
     if not name:
-        name = declaration[name_match.start():].rstrip("=").strip()
+        name = declaration[name_match.start():name_match.end() - 1].strip()
+
+    default = ""
+    if len(declaration) != name_match.end():
+        default = declaration[name_match.end():].strip()
 
     type = declaration[:name_match.start()].strip()
-    return {"declaration": declaration, "name": name, "type": type}
+
+    qualifiers = []
+    if re.search(r"(^|\s+)static(\s+|$)", type):
+        qualifiers.append("static")
+
+    if re.search(r"(^|\s+)mutable(\s+|$)", type):
+        qualifiers.append("mutable")
+
+    return {"declaration": declaration,
+            "name": name,
+            "default": default,
+            "type": type,
+            "qualifiers": qualifiers}
 
 
 def build_method_parameters_node(parameters):
@@ -207,29 +204,44 @@ def build_method_node(method_declaration, method_name):
     results["declaration"] = method_declaration
 
     template = match_template(method_declaration)
-    results["is_template"] = "True" if template else "False"
-    if template:
-        results["template"] = template
 
-    virtual = match_virtual(method_declaration)
-    results["is_virtual"] = "True" if virtual else "False"
-    if virtual:
-        results["virtual"] = virtual
-
-    static = match_static(method_declaration)
-    results["is_static"] = "True" if static else "False"
-    if static:
-        results["static"] = static
-
-    results["type"] = match_method_type(method_declaration, method_name)
-
-    qualifiers = match_method_qualifiers(method_declaration, method_name)
-    results["is_override"] = "True" if "override" in qualifiers else "False"
-    results["is_const"] = "True" if "const" in qualifiers else "False"
-    results["is_pure"] = "True" if "= 0" in qualifiers else "False"
+    type = match_method_type(method_declaration, method_name)
+    results["type"] = type
 
     parameters = match_method_parameters(method_declaration, method_name)
     results["parameters"] = build_method_parameters_node(parameters)
+
+    qualifiers = []
+
+    if template:
+        qualifiers.append("template")
+
+    if re.search(r"(^|\s+)virtual(\s+|$)", type):
+        qualifiers.append("virtual")
+
+    if re.search(r"(^|\s+)static(\s+|$)", type):
+        qualifiers.append("static")
+
+    if re.search(r"(^|\s+)explicit(\s+|$)", type):
+        qualifiers.append("explicit")
+
+    qualifiers_string = match_method_qualifiers(method_declaration, method_name)
+    if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
+        qualifiers.append("override")
+
+    if re.search(r"(^|\s+)const(\s+|$)", qualifiers_string):
+        qualifiers.append("const")
+
+    if re.search(r"(^|\s+)=\s*0(\s+|$)", qualifiers_string):
+        qualifiers.append("pure")
+
+    if re.search(r"(^|\s+)=\s*delete(\s+|$)", qualifiers_string):
+        qualifiers.append("deleted")
+
+    if re.search(r"(^|\s+)=\s*default(\s+|$)", qualifiers_string):
+        qualifiers.append("default")
+
+    results["qualifiers"] = qualifiers
 
     return results
 
@@ -249,11 +261,19 @@ def parse_class_methods_and_fields(class_nodes, file_path):
             access_specifier = next((s for s in AccessSpecifier if s.name == name), None)
 
         elif (i.kind is clang.cindex.CursorKind.CXX_METHOD or
-              i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE):
+              i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE or
+              i.kind is clang.cindex.CursorKind.DESTRUCTOR or
+              i.kind is clang.cindex.CursorKind.CONSTRUCTOR):
             name = i.spelling
             declaration = read_extent(file_path, i.extent)
             method = build_method_node(declaration, name)
+
             method["access_specifier"] = access_specifier.name
+            if i.kind is clang.cindex.CursorKind.CONSTRUCTOR:
+                method["qualifiers"].append("constructor")
+            elif i.kind is clang.cindex.CursorKind.DESTRUCTOR:
+                method["qualifiers"].append("deconstructor")
+
             methods.append(method)
 
         elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
