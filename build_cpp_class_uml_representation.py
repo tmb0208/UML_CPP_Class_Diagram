@@ -1,10 +1,10 @@
 #!/usr/bin/python
 import json
 import sys
-import CppHeaderParser
 import re
 import argparse
 import os
+from parse_cpp_file import search_class_in_file
 
 
 def blockPrint():
@@ -25,13 +25,16 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Builds uml class diagram from header file and/or relationship between '
                     'classes which are represented in graphviz dot language. '
-                    'Elther FILE_PATH or RELATIONSHIP_TYPE is required')
+                    'Elther FILE_PATH or RELATIONSHIP_TYPE is required. '
+                    'C++ files parsing is based on clang library')
 
     parser.add_argument('-f', '--file-path', type=str,
                         help='Path to file which contains class definition.')
     parser.add_argument('-c', '--class-name', type=str,
                         help='Name of class to extract (Use "::" for nested classes). '
                              'By default basename of FILE_PATH would be set')
+    parser.add_argument('-a', '--clang_arguments', type=str,
+                        help='Arguments passed to clang before parsing')
 
     parser.add_argument('-t', '--relationship-type', type=str,
                         choices=get_uml_class_diagram_relationships(),
@@ -82,19 +85,24 @@ def parse_args():
     return args
 
 
-def parse_cpp_class(cpp_file_path, class_name):
+def parse_cpp_classes(cpp_file_path, class_pattern, args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
-    blockPrint()
-    parsed_cpp_file = CppHeaderParser.CppHeader(cpp_file_path)
-    enablePrint()
+    args = args.split(" ")
+    classes = search_class_in_file(cpp_file_path, class_pattern, args)
+    if not classes:
+        raise ValueError("Error: No class matching pattern: {}".format(class_pattern))
+        return None
+    elif len(classes) > 1:
+        classes_names = []
+        for c in classes:
+            classes_names.append(c["name"])
+        raise ValueError("Error: Several classes are matching pattern '{}': {}".format(
+            class_pattern, classes_names))
+        return None
 
-    if not class_name in parsed_cpp_file.classes:
-        raise ValueError("Error: No such class: '{}'. Suggested classes: {}".format(
-            class_name, parsed_cpp_file.classes.keys()))
-
-    return parsed_cpp_file.classes[class_name]
+    return classes[0]
 
 
 def replace_html_specific_characters(string):
@@ -108,48 +116,15 @@ def replace_multiple(string, old_arr, new):
     return string
 
 
-def replace_new_line(string):
-    return string.replace("\n", "").replace("\r", "")
-
-
-def replace_extra_spaces(string):
-    return ' '.join(string.split())
-
-
-def build_full_class_name(cpp_class):
-    result = "{}::{}".format(cpp_class["namespace"], cpp_class["name"])
-    if "template" in cpp_class:
-        result += " " + cpp_class["template"]
-
-    result = replace_new_line(result)
-    result = replace_extra_spaces(result)
-    return result
-
-
-# WORKAROUND
-def is_property_valid(property):
-    return not property["type"] == "using"
-
-
-# WORKAROUND
-def normalize_property_type(type):
-    match = re.search(r"^.*?[^:]:[^:]", type)
-    if match:
-        return type[len(match.group(0))-1:]
-    return type
-
-
 def build_uml_properties_representation(properties, access_modificator_representations):
     results = []
 
-    representation = "{} {} : {}"
+    for property in properties:
+        specifier = property["access_specifier"]
+        specifier_representation = access_modificator_representations[specifier]
 
-    for acc_mod, acc_mod_rep in access_modificator_representations.items():
-        for property in properties[acc_mod]:
-            if is_property_valid(property):
-                results.append(representation.format(acc_mod_rep,
-                                                     property["name"],
-                                                     normalize_property_type(property["type"])))
+        result = "{} {} : {}".format(specifier_representation, property["name"], property["type"])
+        results.append(result)
 
     return results
 
@@ -166,28 +141,19 @@ def build_uml_method_parameters_representation(method):
     return ', '.join(results)
 
 
-def build_uml_method_name_representation(method):
-    result = method["name"]
-
-    if method["destructor"]:
-        result = "~" + result
-
-    return result
-
-
 def build_uml_method_return_type_representation(method):
-    if method["constructor"] or method["destructor"]:
+    if "constructor" in method["qualifiers"] or "destructor" in method["qualifiers"]:
         return ""
 
-    return method["rtnType"]
+    return method["type"]
 
 
 def build_uml_method_specificators_representation(method):
-    if method["pure_virtual"]:
+    if "pure" in method["qualifiers"] or "virtual" in method["qualifiers"]:
         return "= 0"
-    elif method["virtual"]:
+    elif "virtual" in method["qualifiers"]:
         return "[virtual]"
-    elif method["override"]:
+    elif "override" in method["qualifiers"]:
         return "[override]"
     else:
         return ""
@@ -198,16 +164,17 @@ def build_uml_methods_representation(methods, access_modificator_representations
 
     representation = "{} {}( {} ) : {} {}"
 
-    for acc_mod, acc_mod_rep in access_modificator_representations.items():
-        for method in methods[acc_mod]:
-            result = representation.format(acc_mod_rep,
-                                           build_uml_method_name_representation(method),
-                                           build_uml_method_parameters_representation(method),
-                                           build_uml_method_return_type_representation(method),
-                                           build_uml_method_specificators_representation(method))
+    for method in methods:
+        specifier = method["access_specifier"]
+        specifier_representation = access_modificator_representations[specifier]
+        result = representation.format(specifier_representation,
+                                       method["name"],
+                                       build_uml_method_parameters_representation(method),
+                                       build_uml_method_return_type_representation(method),
+                                       build_uml_method_specificators_representation(method))
 
-            result = result.rstrip(": ")
-            results.append(result)
+        result = result.rstrip(": ")
+        results.append(result)
 
     return results
 
@@ -286,7 +253,7 @@ def build_dot_node(full_class_name, label):
 
 
 def build_properties_and_methods_uml_representation(properties, methods):
-    access_modificator_representations = {"private": "-", "protected": "#", "public": "+"}
+    access_modificator_representations = {"PRIVATE": "-", "PROTECTED": "#", "PUBLIC": "+"}
 
     properties_representation = build_uml_properties_representation(
         properties, access_modificator_representations)
@@ -350,15 +317,18 @@ def main(argv):
 
     if args.file_path:
         try:
-            cpp_class = parse_cpp_class(args.file_path, args.class_name)
+            cpp_class = parse_cpp_classes(args.file_path, args.class_name, args.clang_arguments)
+            if not cpp_class:
+                return 1
         except ValueError as error:
             print(error)
             return 1
 
-        full_class_name = build_full_class_name(cpp_class)
+        # TODO: Add namespace to name
+        full_class_name = cpp_class["full_name"]
 
         node = build_uml_class_diagram_node(
-            full_class_name, cpp_class["properties"], cpp_class["methods"])
+            full_class_name, cpp_class["fields"], cpp_class["methods"])
         print node
 
     if args.relationship_type:

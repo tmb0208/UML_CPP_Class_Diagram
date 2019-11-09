@@ -272,7 +272,7 @@ def parse_class_methods_and_fields(class_nodes, file_path):
             if i.kind is clang.cindex.CursorKind.CONSTRUCTOR:
                 method["qualifiers"].append("constructor")
             elif i.kind is clang.cindex.CursorKind.DESTRUCTOR:
-                method["qualifiers"].append("deconstructor")
+                method["qualifiers"].append("destructor")
 
             methods.append(method)
 
@@ -328,7 +328,3 @@ def search_class_in_file(file_path, class_pattern, args):
         translation_unit.cursor.get_children(), translation_unit.spelling)
 
     return search_class(nodes, class_pattern, file_path)
-
-
-c = search_class_in_file(sys.argv[1], sys.argv[2], ['-std=c++11', '-D=NETWORK_API'])
-print json.dumps(c)
