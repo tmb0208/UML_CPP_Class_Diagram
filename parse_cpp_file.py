@@ -38,7 +38,7 @@ def read_extent(file_path, extent):
     return result
 
 
-def find_parentheses(string, pos=0, opening="(", closing=")"):
+def find_corresponding_closing_parenthese(string, pos=0, opening="(", closing=")"):
     stack = 0
 
     for i, c in enumerate(string[pos:]):
@@ -61,7 +61,7 @@ def match_template(declaration):
     m = re.search(r"template\s*<", declaration)
     if m:
         s = m.start()
-        e = find_parentheses(declaration, m.end() - 1, "<", ">") + 1
+        e = find_corresponding_closing_parenthese(declaration, m.end() - 1, "<", ">") + 1
         if e:
             return declaration[s:e]
 
@@ -90,12 +90,17 @@ def match_method_parameters(method_declaration, method_name):
         return None
 
     s = match.start() + len(method_name) + 1
-    e = find_parentheses(method_declaration, match.end() - 1, "(", ")")
+    e = find_corresponding_closing_parenthese(method_declaration, match.end() - 1, "(", ")")
     if not e:
         raise IndexError("No matching closing parentheses")
         return None
 
-    return method_declaration[s:e]
+    if s == e:
+        return None
+
+    result = method_declaration[s:e]
+    result = result.strip()
+    return result
 
 
 def match_method_type(method_declaration, method_name):
@@ -120,10 +125,13 @@ def match_method_type(method_declaration, method_name):
 
 
 def match_method_qualifiers(method_declaration, method_name):
-    parameters = match_method_parameters(method_declaration, method_name)
-    result = method_declaration.replace(parameters, "")
+    result = method_declaration
 
-    match = re.search(r"{}\s*\(\)".format(method_name), result)
+    parameters = match_method_parameters(method_declaration, method_name)
+    if parameters:
+        result = result.replace(parameters, "")
+
+    match = re.search(r"{}\s*\(\s*\)".format(method_name), result)
     if not match:
         raise ValueError("Could not match method name '{}': {}". format(
             method_name, method_declaration))
@@ -135,8 +143,53 @@ def match_method_qualifiers(method_declaration, method_name):
     return result
 
 
-def build_parameters_node(parameters):
-    return None
+def split_method_parameters(parameters):
+    results = []
+
+    mask = parameters
+    brackets = {"(": ")", "<": ">", "[": "]"}
+    for b in brackets:
+        while True:
+            s = mask.find(b)
+            if s == -1:
+                break
+
+            e = find_corresponding_closing_parenthese(mask, s, b, brackets[b])
+            mask = mask[:s] + ("#" * (e + 1 - s)) + mask[e + 1:]
+
+    start_pos = 0
+    while True:
+        comma_pos = mask.find(",", start_pos)
+        if comma_pos == -1:
+            break
+
+        result = parameters[start_pos:comma_pos]
+        result = result.strip()
+        results.append(result)
+
+        start_pos = comma_pos + 1
+
+    results.append(parameters[start_pos:])
+
+    return results
+
+
+def build_method_parameters_node(parameters):
+    results = []
+    if not parameters:
+        return results
+
+    parameters = split_method_parameters(parameters)
+    for parameter in parameters:
+        name_match = re.search(r"\s*[a-z_][a-z_0-9]*\s*$", parameter)
+        if not name_match:
+            raise ValueError("Could not match parameter name: {}". format(parameter))
+
+        name = parameter[name_match.start():].strip()
+        type = parameter[:name_match.start()].strip()
+        results.append({"name": name, "type": type})
+
+    return results
 
 
 def build_method_node(method_declaration, method_name):
@@ -167,7 +220,7 @@ def build_method_node(method_declaration, method_name):
     results["is_pure"] = "True" if "= 0" in qualifiers else "False"
 
     parameters = match_method_parameters(method_declaration, method_name)
-    results["parameters"] = parameters
+    results["parameters"] = build_method_parameters_node(parameters)
 
     return results
 
@@ -186,7 +239,6 @@ def parse_nodes(nodes, file_path):
                 method_name = i.spelling
                 method_declaration = read_extent(sys.argv[1], i.extent)
                 nodes = build_method_node(method_declaration, method_name)
-
             else:
                 nodes = parse_nodes(i.get_children(), file_path)
 
