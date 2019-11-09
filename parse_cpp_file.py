@@ -248,7 +248,8 @@ def parse_class_methods_and_fields(class_nodes, file_path):
             name = i.access_specifier.name
             access_specifier = next((s for s in AccessSpecifier if s.name == name), None)
 
-        elif i.kind is clang.cindex.CursorKind.CXX_METHOD or i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE:
+        elif (i.kind is clang.cindex.CursorKind.CXX_METHOD or
+              i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE):
             name = i.spelling
             declaration = read_extent(file_path, i.extent)
             method = build_method_node(declaration, name)
@@ -265,7 +266,17 @@ def parse_class_methods_and_fields(class_nodes, file_path):
     return methods, fields
 
 
+def match_full_class_name(class_declaration):
+    match = re.search(r"class[^{]*[a-z_][a-z_0-9]*\s*(<[^{]*>)?\s*{", class_declaration)
+    if not match:
+        return None
+
+    return class_declaration[:match.end() - 1].strip()
+
+
 def search_class(nodes, class_pattern, file_path, namespace=""):
+    results = []
+
     for i in nodes:
         if i.kind is clang.cindex.CursorKind.NAMESPACE:
             name = i.spelling
@@ -276,13 +287,18 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
 
         elif (i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or
               i.kind is clang.cindex.CursorKind.CLASS_DECL):
+            declaration = read_extent(file_path, i.extent)
             name = i.spelling
-            if re.search(class_pattern, name):
-                class_declaration = read_extent(file_path, i.extent)
+            full_name = match_full_class_name(declaration)
+            if re.search(class_pattern, full_name):
                 methods, fields = parse_class_methods_and_fields(i.get_children(), file_path)
-                return {"name": name, "namespace": namespace, "methods": methods, "fields": fields}
+                results.append({"name": name,
+                                "full_name": full_name,
+                                "namespace": namespace,
+                                "methods": methods,
+                                "fields": fields})
 
-    return None
+    return results
 
 
 def search_class_in_file(file_path, class_pattern, args):
