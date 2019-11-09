@@ -2,6 +2,7 @@ import clang.cindex
 import sys
 import json
 import re
+from enum import Enum
 
 
 def filter_node_list_by_file(nodes, file_name):
@@ -226,15 +227,23 @@ def build_method_node(method_declaration, method_name):
 
 
 def parse_class_methods(class_nodes, file_path):
-    methods = []
+    class AccessSpecifier(Enum):
+        PRIVATE = 0
+        PROTECTED = 1
+        PUBLIC = 2
 
+    methods = []
+    access_specifier = AccessSpecifier.PRIVATE
     for i in class_nodes:
         if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
             name = i.access_specifier.name
+            access_specifier = next((s for s in AccessSpecifier if s.name == name), None)
+
         elif i.kind is clang.cindex.CursorKind.CXX_METHOD or i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE:
             method_name = i.spelling
             method_declaration = read_extent(file_path, i.extent)
             method = build_method_node(method_declaration, method_name)
+            method["access_specifier"] = access_specifier.name
             methods.append(method)
 
     return methods
