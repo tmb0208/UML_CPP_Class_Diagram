@@ -175,6 +175,20 @@ def split_method_parameters(parameters):
     return results
 
 
+def build_propery_node(declaration, name=None):
+
+    name_match = re.search(
+        r"\s*{}\s*(=|$)".format(name if name else r"[a-zA-Z_][a-zA-Z0-9_]*"), declaration)
+    if not name_match:
+        raise ValueError("Could not match declaration name: {}". format(declaration))
+
+    if not name:
+        name = declaration[name_match.start():].rstrip("=").strip()
+
+    type = declaration[:name_match.start()].strip()
+    return {"declaration": declaration, "name": name, "type": type}
+
+
 def build_method_parameters_node(parameters):
     results = []
     if not parameters:
@@ -182,13 +196,7 @@ def build_method_parameters_node(parameters):
 
     parameters = split_method_parameters(parameters)
     for parameter in parameters:
-        name_match = re.search(r"\s*[a-z_][a-z_0-9]*\s*$", parameter)
-        if not name_match:
-            raise ValueError("Could not match parameter name: {}". format(parameter))
-
-        name = parameter[name_match.start():].strip()
-        type = parameter[:name_match.start()].strip()
-        results.append({"name": name, "type": type})
+        results.append(build_propery_node(parameter))
 
     return results
 
@@ -226,13 +234,14 @@ def build_method_node(method_declaration, method_name):
     return results
 
 
-def parse_class_methods(class_nodes, file_path):
+def parse_class_methods_and_fields(class_nodes, file_path):
     class AccessSpecifier(Enum):
         PRIVATE = 0
         PROTECTED = 1
         PUBLIC = 2
 
     methods = []
+    fields = []
     access_specifier = AccessSpecifier.PRIVATE
     for i in class_nodes:
         if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
@@ -240,13 +249,20 @@ def parse_class_methods(class_nodes, file_path):
             access_specifier = next((s for s in AccessSpecifier if s.name == name), None)
 
         elif i.kind is clang.cindex.CursorKind.CXX_METHOD or i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE:
-            method_name = i.spelling
-            method_declaration = read_extent(file_path, i.extent)
-            method = build_method_node(method_declaration, method_name)
+            name = i.spelling
+            declaration = read_extent(file_path, i.extent)
+            method = build_method_node(declaration, name)
             method["access_specifier"] = access_specifier.name
             methods.append(method)
 
-    return methods
+        elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
+            name = i.spelling
+            declaration = read_extent(file_path, i.extent)
+            field = build_propery_node(declaration, name)
+            field["access_specifier"] = access_specifier.name
+            fields.append(field)
+
+    return methods, fields
 
 
 def search_class(nodes, class_pattern, file_path, namespace=""):
@@ -258,12 +274,13 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
             if result:
                 return result
 
-        elif i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or i.kind is clang.cindex.CursorKind.CLASS_DECL:
-            class_declaration = read_extent(file_path, i.extent)
-            if re.search(class_pattern, class_declaration):
-                name = i.spelling
-                methods = parse_class_methods(i.get_children(), file_path)
-                return {"name": name, "namespace": namespace, "methods": methods}
+        elif (i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or
+              i.kind is clang.cindex.CursorKind.CLASS_DECL):
+            name = i.spelling
+            if re.search(class_pattern, name):
+                class_declaration = read_extent(file_path, i.extent)
+                methods, fields = parse_class_methods_and_fields(i.get_children(), file_path)
+                return {"name": name, "namespace": namespace, "methods": methods, "fields": fields}
 
     return None
 
