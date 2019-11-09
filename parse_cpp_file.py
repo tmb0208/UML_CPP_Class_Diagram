@@ -294,22 +294,37 @@ def match_full_class_name(class_declaration):
     return class_declaration[:match.end() - 1].strip()
 
 
+def add_namespace_before_class_name(full_class_name, class_name, namespace):
+    class_name_match = re.search(r"\s*{}\s*".format(class_name), full_class_name)
+    if not class_name_match:
+        raise ValueError("Could not match class name '{}' in full class name '{}'". format(
+            class_name, full_class_name))
+
+    return "{}{}::{}".format(full_class_name[:class_name_match.start() + 1],
+                             namespace,
+                             full_class_name[class_name_match.start() + 1:])
+
+
 def search_class(nodes, class_pattern, file_path, namespace=""):
     results = []
 
     for i in nodes:
         if i.kind is clang.cindex.CursorKind.NAMESPACE:
             name = i.spelling
-            namespace = "{}::{}".format(namespace, name) if namespace else name
-            result = search_class(i.get_children(), class_pattern, file_path, namespace)
+            result = search_class(i.get_children(), class_pattern, file_path,
+                                  "{}::{}".format(namespace, name) if namespace else name)
             if result:
                 return result
 
         elif (i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or
               i.kind is clang.cindex.CursorKind.CLASS_DECL):
-            declaration = read_extent(file_path, i.extent)
             name = i.spelling
+
+            declaration = read_extent(file_path, i.extent)
             full_name = match_full_class_name(declaration)
+            if full_name and namespace:
+                full_name = add_namespace_before_class_name(full_name, name, namespace)
+
             if full_name and re.search(class_pattern, full_name):
                 methods, fields = parse_class_methods_and_fields(i.get_children(), file_path)
                 results.append({"name": name,

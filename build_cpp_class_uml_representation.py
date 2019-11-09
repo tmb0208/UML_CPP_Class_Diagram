@@ -324,7 +324,6 @@ def main(argv):
             print(error)
             return 1
 
-        # TODO: Add namespace to name
         full_class_name = cpp_class["full_name"]
 
         node = build_uml_class_diagram_node(
