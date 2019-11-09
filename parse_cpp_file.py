@@ -99,6 +99,7 @@ def match_method_parameters(method_declaration, method_name):
 
 
 def match_method_type(method_declaration, method_name):
+    result = method_declaration
     template = match_template(method_declaration)
     if template:
         result = method_declaration.replace(template, "")
@@ -114,7 +115,7 @@ def match_method_type(method_declaration, method_name):
         return None
 
     result = result[:match.start()]
-    result.strip()
+    result = result.strip()
     return result
 
 
@@ -134,18 +135,57 @@ def match_method_qualifiers(method_declaration, method_name):
     return result
 
 
+def build_parameters_node(parameters):
+    return None
+
+
+def build_method_node(method_declaration, method_name):
+    results = {}
+    results["name"] = method_name
+    results["declaration"] = method_declaration
+
+    template = match_template(method_declaration)
+    results["is_template"] = "True" if template else "False"
+    if template:
+        results["template"] = template
+
+    virtual = match_virtual(method_declaration)
+    results["is_virtual"] = "True" if virtual else "False"
+    if virtual:
+        results["virtual"] = virtual
+
+    static = match_static(method_declaration)
+    results["is_static"] = "True" if static else "False"
+    if static:
+        results["static"] = static
+
+    results["type"] = match_method_type(method_declaration, method_name)
+
+    qualifiers = match_method_qualifiers(method_declaration, method_name)
+    results["is_override"] = "True" if "override" in qualifiers else "False"
+    results["is_const"] = "True" if "const" in qualifiers else "False"
+    results["is_pure"] = "True" if "= 0" in qualifiers else "False"
+
+    parameters = match_method_parameters(method_declaration, method_name)
+    results["parameters"] = parameters
+
+    return results
+
+
 def parse_nodes(nodes, file_path):
     result = []
 
     for i in nodes:
         if i.kind.is_declaration:
-            name = i.displayname
+            name = i.spelling
             nodes = []
 
             if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
                 name = i.access_specifier.name
-            elif i.kind is clang.cindex.CursorKind.CXX_METHOD:
+            elif i.kind is clang.cindex.CursorKind.CXX_METHOD or i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE:
+                method_name = i.spelling
                 method_declaration = read_extent(sys.argv[1], i.extent)
+                nodes = build_method_node(method_declaration, method_name)
 
             else:
                 nodes = parse_nodes(i.get_children(), file_path)
