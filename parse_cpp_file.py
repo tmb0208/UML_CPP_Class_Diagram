@@ -290,7 +290,7 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
             declaration = read_extent(file_path, i.extent)
             name = i.spelling
             full_name = match_full_class_name(declaration)
-            if re.search(class_pattern, full_name):
+            if full_name and re.search(class_pattern, full_name):
                 methods, fields = parse_class_methods_and_fields(i.get_children(), file_path)
                 results.append({"name": name,
                                 "full_name": full_name,
@@ -310,5 +310,5 @@ def search_class_in_file(file_path, class_pattern, args):
     return search_class(nodes, class_pattern, file_path)
 
 
-c = search_class_in_file(sys.argv[1], sys.argv[2], ['-std=c++11'])
+c = search_class_in_file(sys.argv[1], sys.argv[2], ['-std=c++11', '-D=NETWORK_API'])
 print json.dumps(c)
