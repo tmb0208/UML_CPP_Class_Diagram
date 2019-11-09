@@ -225,36 +225,48 @@ def build_method_node(method_declaration, method_name):
     return results
 
 
-def parse_nodes(nodes, file_path):
-    result = []
+def parse_class_methods(class_nodes, file_path):
+    methods = []
 
+    for i in class_nodes:
+        if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
+            name = i.access_specifier.name
+        elif i.kind is clang.cindex.CursorKind.CXX_METHOD or i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE:
+            method_name = i.spelling
+            method_declaration = read_extent(file_path, i.extent)
+            method = build_method_node(method_declaration, method_name)
+            methods.append(method)
+
+    return methods
+
+
+def search_class(nodes, class_pattern, file_path, namespace=""):
     for i in nodes:
-        if i.kind.is_declaration:
+        if i.kind is clang.cindex.CursorKind.NAMESPACE:
             name = i.spelling
-            nodes = []
+            namespace = "{}::{}".format(namespace, name) if namespace else name
+            result = search_class(i.get_children(), class_pattern, file_path, namespace)
+            if result:
+                return result
 
-            if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
-                name = i.access_specifier.name
-            elif i.kind is clang.cindex.CursorKind.CXX_METHOD or i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE:
-                method_name = i.spelling
-                method_declaration = read_extent(sys.argv[1], i.extent)
-                nodes = build_method_node(method_declaration, method_name)
-            else:
-                nodes = parse_nodes(i.get_children(), file_path)
+        elif i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or i.kind is clang.cindex.CursorKind.CLASS_DECL:
+            class_declaration = read_extent(file_path, i.extent)
+            if re.search(class_pattern, class_declaration):
+                name = i.spelling
+                methods = parse_class_methods(i.get_children(), file_path)
+                return {"name": name, "namespace": namespace, "methods": methods}
 
-            result.append({"kind": "{}".format(i.kind), "name": name, "nodes": nodes})
-
-    return result
+    return None
 
 
-def parse_file_nodes(file_path, args):
+def search_class_in_file(file_path, class_pattern, args):
     index = clang.cindex.Index.create()
     translation_unit = index.parse(file_path, args=args)
     nodes = filter_node_list_by_file(
         translation_unit.cursor.get_children(), translation_unit.spelling)
 
-    return parse_nodes(nodes, file_path)
+    return search_class(nodes, class_pattern, file_path)
 
 
-all_classes = parse_file_nodes(sys.argv[1], ['-std=c++11'])
-print json.dumps(all_classes)
+c = search_class_in_file(sys.argv[1], sys.argv[2], ['-std=c++11'])
+print json.dumps(c)
