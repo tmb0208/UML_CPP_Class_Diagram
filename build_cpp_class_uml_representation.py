@@ -18,12 +18,14 @@ def parse_args(args=None):
         description='Builds uml class diagram from header file and/or relationship between '
                     'classes which are represented in graphviz dot language. '
                     'Elther FILE_PATH or RELATIONSHIP_TYPE or ARGUMENT_LIST_FILE is required. '
-                    'C++ files parsing is based on clang library')
+                    'C++ files parsing is based on clang library\n\n'
+                    'Note[0]: Classes are matched by fullname, which consist of class declaration and '
+                    'namespace before class name')
 
     parser.add_argument('-f', '--file-path', type=str,
                         help='Path to file which contains class definition.')
-    parser.add_argument('-c', '--class-name', type=str,
-                        help='Name of class to extract (Use "::" for nested classes). '
+    parser.add_argument('-c', '--class-pattern', type=str,
+                        help='Pattern of class to extract. See Note[0]. '
                              'By default basename of FILE_PATH would be set')
     parser.add_argument('-alf', '--argument-list-file', type=str,
                         help='Path to file where every line is argument to this executable.')
@@ -37,10 +39,10 @@ def parse_args(args=None):
                              'If it is set RELATIONSHIP_DEPENDEE should be set. '
                              'If FILE_PATH is not set then RELATIONSHIP_DEPENDER should be set.')
     parser.add_argument('-dr', '--relationship-depender', type=str,
-                        help='Sets relationship depender name. '
+                        help='Sets relationship depender class pattern. See Note[0]. '
                              'By default CLASS_NAME would be set')
     parser.add_argument('-de', '--relationship-dependee', type=str,
-                        help='Sets relationship dependee name')
+                        help='Sets relationship dependee class pattern. See Note[0]. ')
     parser.add_argument('-tl', '--relationship-taillabel', type=str,
                         help='Sets relationship tail label')
     parser.add_argument('-l', '--relationship-label', type=str,
@@ -69,9 +71,9 @@ def parse_args(args=None):
         return None
 
     # Set defaults
-    if not args.class_name and args.file_path:
+    if not args.class_pattern and args.file_path:
         file = os.path.split(args.file_path)[1]
-        args.class_name = os.path.splitext(file)[0]
+        args.class_pattern = os.path.splitext(file)[0]
 
     if not args.relationship_labeldistance:
         args.relationship_labeldistance = default_relationship_labeldistance_value
@@ -79,7 +81,7 @@ def parse_args(args=None):
     return args
 
 
-def parse_cpp_classes(cpp_file_path, class_pattern, args):
+def parse_cpp_class(cpp_file_path, class_pattern, args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
@@ -305,41 +307,142 @@ def build_relationship(depender, dependee, rtype,
     return "\"{}\" -> \"{}\" {}".format(depender, dependee, edge_attributes)
 
 
-def build_uml_class_diagram_node_and_relationship(args):
+def parse_classes(args_list):
     result = []
 
-    cpp_class = None
-    if args.file_path:
-        try:
-            cpp_class = parse_cpp_classes(args.file_path, args.class_name, args.clang_arguments)
-            if cpp_class:
-                node = build_uml_class_diagram_node(
-                    cpp_class["full_name"], cpp_class["fields"], cpp_class["methods"])
-                result.append(node)
-        except ValueError as error:
-            print(error)
-            print("Args: {}".format(args))
-            return None
-
-    if args.relationship_type:
-        if not args.relationship_depender:
-            if not cpp_class:
-                raise ValueError(
-                    "Error: Neither RELATIONSHIP_DEPENDER is set nor cpp class is parsed")
-                return None
-
-            args.relationship_depender = cpp_class["full_name"]
-
-        relationship = build_relationship(args.relationship_depender,
-                                          args.relationship_dependee,
-                                          args.relationship_type,
-                                          args.relationship_taillabel,
-                                          args.relationship_label,
-                                          args.relationship_headlabel,
-                                          args.relationship_labeldistance)
-        result.append(relationship)
+    for args in args_list:
+        if args.file_path:
+            c = parse_cpp_class(args.file_path, args.class_pattern, args.clang_arguments)
+            if c:
+                result.append(c)
 
     return result
+
+
+def build_classes_nodes(classes):
+    result = []
+
+    for c in classes:
+        node = build_uml_class_diagram_node(c["full_name"], c["fields"], c["methods"])
+        result.append(node)
+
+    return result
+
+
+def match_class_full_name(classes, pattern):
+    results = []
+    full_names = []
+    for c in classes:
+        full_names.append(c["full_name"])
+        if re.search(pattern, c["full_name"]):
+            results.append(c["full_name"])
+
+    if not results:
+        raise ValueError(
+            "Error: No class full name matching pattern '{}': {}".format(pattern, full_names))
+        return None
+    elif len(results) > 1:
+        raise ValueError("Error: Several classes full name are matching pattern '{}': {}".format(
+            pattern, results))
+        return None
+
+    return results[0]
+
+
+def build_relationships(args_list, classes):
+    results = []
+
+    for args in args_list:
+        if args.relationship_type:
+            if not args.relationship_depender:
+                args.relationship_depender = args.class_pattern
+
+            depender_full_name = match_class_full_name(classes, args.relationship_depender)
+            dependee_full_name = match_class_full_name(classes, args.relationship_dependee)
+
+            relationship = build_relationship(depender_full_name,
+                                              dependee_full_name,
+                                              args.relationship_type,
+                                              args.relationship_taillabel,
+                                              args.relationship_label,
+                                              args.relationship_headlabel,
+                                              args.relationship_labeldistance)
+            results.append(relationship)
+
+    return results
+
+
+def parse_arguments_file(file_path, clang_arguments=None):
+    if not file_path:
+        return None
+
+    result = []
+    if not os.path.isfile(file_path):
+        raise ValueError("Error: No such file: '{}'".format(file_path))
+
+    with open(file_path) as f:
+        lines = f.readlines()
+
+    for n, line in enumerate(lines):
+        line_args = shlex.split(line)
+        line_args.append("--clang-arguments={}".format(clang_arguments))
+
+        line_args = parse_args(line_args)
+        if not line_args:
+            raise ValueError("Error: Could not parse arguments from file '{}' line {}:'{}'".format(
+                file_path, n, line))
+            return None
+
+        result.append(line_args)
+
+    return result
+
+
+def build_graph(nodes, relationships):
+    template = ('digraph "Class Diagram"\n'
+                '{{\n'
+                '\tbgcolor = transparent;\n'
+                '\trankdir = LR;\n'
+                '\tedge [fontname = Helvetica, fontsize = 10, labelfontname = Helvetica, '
+                'labelfontsize = 10];\n'
+                '\tnode [fontname = Helvetica, fontsize = 10, shape = none, margin = 0, '
+                'style = filled, fillcolor = grey75, fontcolor = black ];\n'
+                '\n'
+                '{}\n'
+                '\n'
+                '{}\n'
+                '}}')
+
+    return template.format("\n".join(nodes), "\n".join(relationships))
+
+
+def main():
+    args = parse_args()
+    if not args:
+        print "Error: Argument parser error"
+        return 1
+
+    args_list = parse_arguments_file(args.argument_list_file, args.clang_arguments)
+    if not args_list:
+        args_list.append(args)
+
+    try:
+        classes = parse_classes(args_list)
+        nodes = build_classes_nodes(classes)
+
+        relationships = build_relationships(args_list, classes)
+
+        graph = build_graph(nodes, relationships)
+        print graph
+        return 0
+    except ValueError as error:
+        print(error)
+
+    return 1
+
+
+if __name__ == "__main__":
+    exit(main())
 
 
 def build_graph(content):
@@ -356,48 +459,3 @@ def build_graph(content):
                 '}}')
 
     return template.format(content)
-
-
-def main():
-    args = parse_args()
-    if not args:
-        print "Error: Argument parser error"
-        return 1
-
-    graph = []
-    argument_list_file = args.argument_list_file
-    if argument_list_file:
-        if not os.path.isfile(argument_list_file):
-            raise ValueError("Error: No such file: '{}'".format(argument_list_file))
-
-        with open(argument_list_file) as f:
-            lines = f.readlines()
-
-        for n, line in enumerate(lines):
-            line_args = shlex.split(line)
-            line_args.append("--clang-arguments={}".format(args.clang_arguments))
-
-            line_args = parse_args(line_args)
-            if not args:
-                print "Error: Could not parse argument from file '{}' line {}:'{}'".format(
-                    argument_list_file, n, line)
-                return 1
-
-            node_and_relationship = build_uml_class_diagram_node_and_relationship(line_args)
-            if not node_and_relationship:
-                return 1
-
-            graph = graph + node_and_relationship
-
-    else:
-        graph = build_uml_class_diagram_node_and_relationship(args)
-
-    if graph:
-        print build_graph("\n".join(graph))
-        return 0
-
-    return 1
-
-
-if __name__ == "__main__":
-    exit(main())
