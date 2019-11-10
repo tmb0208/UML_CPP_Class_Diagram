@@ -90,11 +90,11 @@ def parse_cpp_classes(cpp_file_path, class_pattern, args):
             class_pattern, cpp_file_path))
         return None
     elif len(classes) > 1:
-        classes_names = []
+        classes_full_names = []
         for c in classes:
-            classes_names.append(c["name"])
+            classes_full_names.append(c["full_name"])
         raise ValueError("Error: Several classes are matching pattern '{}': {}".format(
-            class_pattern, classes_names))
+            class_pattern, classes_full_names))
         return None
 
     return classes[0]

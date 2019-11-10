@@ -132,13 +132,19 @@ def build_property_node(name, declaration):
     result["name"] = name
     result["declaration"] = declaration
     if name:
-        name_match = re.search(r"\s+{}\s*(=|$)".format(name), declaration)
+        name_match = re.search(r"\s+{}\s*(=|{}|$)".format(name, "{"), declaration)
 
-        default = None
-        if name_match:
-            if len(declaration) != name_match.end():
-                default = declaration[name_match.end():].strip()
-        result["default"] = default
+        if not name_match:
+            raise ValueError(
+                "Error: Could not match property name '{}' in declaration '{}'". format(
+                    name, declaration))
+
+        # TODO: Parse default
+        # default = None
+        # if name_match:
+        #     if len(declaration) != name_match.end():
+        #         default = declaration[name_match.end():].strip()
+        # result["default"] = default
 
         type = declaration[:name_match.start()].strip()
     else:
@@ -173,10 +179,31 @@ def parse_method_parameters(name, method_nodes, file_path):
     return results
 
 
+# WORKAROUND Template Construct/Destructor
+def remove_template(spelling):
+    match = re.search(r"^~?[a-zA-Z_][a-zA-Z0-9_]*", spelling)
+    if not match:
+        raise ValueError("Error: Could not match method name in spelling '{}'". format(spelling))
+
+    return match.group(0)
+
+
+# WORKAROUND operator method
+def extract_operator_name(spelling, declaration):
+    match_operator = re.search(r"operator\s*(?!\.|::|\?:|sizeof)", spelling)
+    if match_operator:
+        return spelling
+
+    return None
+
+
 def parse_method(method_node, file_path):
     result = {}
 
-    name = match_name(method_node.spelling)
+    name = method_node.spelling
+    if "<" in name:
+        name = remove_template(name)
+
     result["name"] = name
 
     declaration = read_extent(file_path, method_node.extent)
@@ -229,19 +256,7 @@ def parse_method(method_node, file_path):
     return result
 
 
-def match_name(spelling):
-    match_operator = re.search(r"operator\s*(?!\.|::|\?:|sizeof)", spelling)
-    if match_operator:
-        return spelling
-
-    match = re.search(r"^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*", spelling)
-    if match:
-        return match.group(0)
-
-    return None
-
-
-def parse_class_methods_and_fields(class_nodes, file_path):
+def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
     class AccessSpecifier(Enum):
         PRIVATE = 0
         PROTECTED = 1
@@ -249,7 +264,7 @@ def parse_class_methods_and_fields(class_nodes, file_path):
 
     methods = []
     fields = []
-    access_specifier = AccessSpecifier.PRIVATE
+    access_specifier = AccessSpecifier.PUBLIC if is_struct else AccessSpecifier.PRIVATE
     for i in class_nodes:
         if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
             name = i.access_specifier.name
@@ -275,7 +290,9 @@ def parse_class_methods_and_fields(class_nodes, file_path):
 
 
 def match_full_class_name(class_declaration):
-    match = re.search(r"class[^{]*[a-z_][a-z_0-9]*\s*(<[^{]*>)?\s*{", class_declaration)
+    match = re.search(
+        r"(class|struct)[^{]*[a-z_][a-z_0-9]*(::[a-z_][a-z_0-9]*)?\s*(<[^{]*>)?\s*{",
+        class_declaration)
     if not match:
         return None
 
@@ -287,6 +304,7 @@ def add_namespace_before_class_name(full_class_name, class_name, namespace):
     if not class_name_match:
         raise ValueError("Could not match class name '{}' in full class name '{}'". format(
             class_name, full_class_name))
+        return None
 
     return "{}{}::{}".format(full_class_name[:class_name_match.start() + 1],
                              namespace,
@@ -306,7 +324,8 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
 
         elif (i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or
               i.kind is clang.cindex.CursorKind.CLASS_DECL or
-              i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION):
+              i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION or
+              i.kind is clang.cindex.CursorKind.STRUCT_DECL):
             name = i.spelling
 
             declaration = read_extent(file_path, i.extent)
@@ -314,13 +333,22 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
             if full_name and namespace:
                 full_name = add_namespace_before_class_name(full_name, name, namespace)
 
+            # FIXME: Class definition, previosly declared in header in other class is not parsed
+
             if full_name and re.search(class_pattern, full_name):
-                methods, fields = parse_class_methods_and_fields(i.get_children(), file_path)
+                is_struct = i.kind is clang.cindex.CursorKind.STRUCT_DECL
+                methods, fields = parse_class_methods_and_fields(
+                    i.get_children(), file_path, is_struct)
                 results.append({"name": name,
                                 "full_name": full_name,
                                 "namespace": namespace,
                                 "methods": methods,
                                 "fields": fields})
+            else:
+                result = search_class(i.get_children(), class_pattern, file_path,
+                                      "{}::{}".format(namespace, name) if namespace else name)
+                if result:
+                    results = results + result
 
     return results
 
