@@ -342,6 +342,22 @@ def build_uml_class_diagram_node_and_relationship(args):
     return result
 
 
+def build_graph(content):
+    template = ('digraph "Class Diagram"\n'
+                '{{\n'
+                '\tbgcolor = transparent;\n'
+                '\trankdir = LR;\n'
+                '\tedge [fontname = Helvetica, fontsize = 10, labelfontname = Helvetica, '
+                'labelfontsize = 10];\n'
+                '\tnode [fontname = Helvetica, fontsize = 10, shape = none, margin = 0, '
+                'style = filled, fillcolor = grey75, fontcolor = black ];\n'
+                '\n'
+                '{}\n'
+                '}}')
+
+    return template.format(content)
+
+
 def main():
     args = parse_args()
     if not args:
@@ -357,11 +373,15 @@ def main():
         with open(argument_list_file) as f:
             lines = f.readlines()
 
-        for line in lines:
+        for n, line in enumerate(lines):
             line_args = shlex.split(line)
             line_args.append("--clang-arguments={}".format(args.clang_arguments))
 
             line_args = parse_args(line_args)
+            if not args:
+                print "Error: Could not parse argument from file '{}' line {}:'{}'".format(
+                    argument_list_file, n, line)
+                return 1
 
             node_and_relationship = build_uml_class_diagram_node_and_relationship(line_args)
             if not node_and_relationship:
@@ -373,7 +393,7 @@ def main():
         graph = build_uml_class_diagram_node_and_relationship(args)
 
     if graph:
-        print "\n".join(graph)
+        print build_graph("\n".join(graph))
         return 0
 
     return 1
