@@ -19,8 +19,8 @@ def parse_args(args=None):
                     'classes which are represented in graphviz dot language. '
                     'Elther FILE_PATH or RELATIONSHIP_TYPE or ARGUMENT_LIST_FILE is required. '
                     'C++ files parsing is based on clang library\n\n'
-                    'Note[0]: Classes are matched by fullname, which consist of class declaration and '
-                    'namespace before class name')
+                    'Note[0]: Classes are matched by fullname, which consist of class declaration '
+                    'and namespace before class name')
 
     parser.add_argument('-f', '--file-path', type=str,
                         help='Path to file which contains class definition.')
@@ -73,31 +73,40 @@ def parse_args(args=None):
     # Set defaults
     if not args.class_pattern and args.file_path:
         file = os.path.split(args.file_path)[1]
-        args.class_pattern = os.path.splitext(file)[0]
+        file_name = os.path.splitext(file)[0]
+        args.class_pattern = r"\b{}\b".format(file_name)
 
     if not args.relationship_labeldistance:
         args.relationship_labeldistance = default_relationship_labeldistance_value
 
+    if not args.clang_arguments:
+        args.clang_arguments = []
+    else:
+        args.clang_arguments = shlex.split(args.clang_arguments)
+
+    clang_arg = "-std=c++11"
+    if clang_arg not in args.clang_arguments:
+        args.clang_arguments.append("-std=c++11")
+
     return args
 
 
-def parse_cpp_class(cpp_file_path, class_pattern, args):
+def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
-    if args:
-        args = args.split(" ")
-    classes = search_class_in_file(cpp_file_path, class_pattern, args)
+    classes = search_class_in_file(cpp_file_path, class_pattern, clang_args)
     if not classes:
-        raise ValueError("Error: No class matching pattern '{}' in file '{}'".format(
-            class_pattern, cpp_file_path))
+        raise ValueError(
+            "Error: No class matching pattern '{}' in file '{}', clang args: {}".format(
+                class_pattern, cpp_file_path, clang_args))
         return None
     elif len(classes) > 1:
         classes_full_names = []
         for c in classes:
             classes_full_names.append(c["full_name"])
-        raise ValueError("Error: Several classes are matching pattern '{}': {}".format(
-            class_pattern, classes_full_names))
+        raise ValueError("Error: In file '{}' several classes are matching pattern '{}': {}".format(
+            cpp_file_path, class_pattern, classes_full_names))
         return None
 
     return classes[0]
@@ -357,8 +366,13 @@ def build_relationships(args_list, classes):
             if not args.relationship_depender:
                 args.relationship_depender = args.class_pattern
 
-            depender_full_name = match_class_full_name(classes, args.relationship_depender)
-            dependee_full_name = match_class_full_name(classes, args.relationship_dependee)
+            try:
+                depender_full_name = match_class_full_name(classes, args.relationship_depender)
+                dependee_full_name = match_class_full_name(classes, args.relationship_dependee)
+            except ValueError as error:
+                print(error)
+                raise ValueError("Could not build relationships with args '{}'.".format(args))
+                return None
 
             relationship = build_relationship(depender_full_name,
                                               dependee_full_name,
@@ -372,7 +386,7 @@ def build_relationships(args_list, classes):
     return results
 
 
-def parse_arguments_file(file_path, clang_arguments=None):
+def parse_arguments_file(file_path):
     if not file_path:
         return None
 
@@ -385,8 +399,6 @@ def parse_arguments_file(file_path, clang_arguments=None):
 
     for n, line in enumerate(lines):
         line_args = shlex.split(line)
-        line_args.append("--clang-arguments={}".format(clang_arguments))
-
         line_args = parse_args(line_args)
         if not line_args:
             raise ValueError("Error: Could not parse arguments from file '{}' line {}:'{}'".format(
@@ -422,8 +434,9 @@ def main():
         print "Error: Argument parser error"
         return 1
 
-    args_list = parse_arguments_file(args.argument_list_file, args.clang_arguments)
+    args_list = parse_arguments_file(args.argument_list_file)
     if not args_list:
+        args_list = []
         args_list.append(args)
 
     try:

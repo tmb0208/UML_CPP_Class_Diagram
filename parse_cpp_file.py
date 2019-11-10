@@ -2,6 +2,7 @@ import clang.cindex
 import sys
 import json
 import re
+import os
 from enum import Enum
 
 
@@ -132,7 +133,7 @@ def build_property_node(name, declaration):
     result["name"] = name
     result["declaration"] = declaration
     if name:
-        name_match = re.search(r"\s+{}\s*(=|{}|$)".format(name, "{"), declaration)
+        name_match = re.search(r"\s*{}\s*(=|{}|$)".format(name, "{"), declaration)
 
         if not name_match:
             raise ValueError(
@@ -355,6 +356,12 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
 
 def search_class_in_file(file_path, class_pattern, args):
     index = clang.cindex.Index.create()
+
+    file_ext = os.path.splitext(file_path)[1]
+    if file_ext in [".cpp"]:
+        if not args:
+            args = []
+        args.append("-xc++")
 
     try:
         translation_unit = index.parse(
