@@ -327,9 +327,17 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
 
 def search_class_in_file(file_path, class_pattern, args):
     index = clang.cindex.Index.create()
-    translation_unit = index.parse(
-        file_path, args=args, options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
-    nodes = filter_node_list_by_file(
-        translation_unit.cursor.get_children(), translation_unit.spelling)
 
-    return search_class(nodes, class_pattern, file_path)
+    try:
+        translation_unit = index.parse(
+            file_path, args=args, options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
+        nodes = filter_node_list_by_file(
+            translation_unit.cursor.get_children(), translation_unit.spelling)
+
+        return search_class(nodes, class_pattern, file_path)
+    except clang.cindex.TranslationUnitLoadError as error:
+        print("Error: {}".format(error))
+        print("File path: {}".format(file_path))
+        print("Class pattern: {}".format(class_pattern))
+        print("Args: {}".format(args))
+        return None

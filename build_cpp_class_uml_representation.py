@@ -317,6 +317,7 @@ def build_uml_class_diagram_node_and_relationship(args):
                 result.append(node)
         except ValueError as error:
             print(error)
+            print("Args: {}".format(args))
             return None
 
     if args.relationship_type:
@@ -342,11 +343,11 @@ def build_uml_class_diagram_node_and_relationship(args):
 
 def main():
     args = parse_args()
-
     if not args:
         print "Error: Argument parser error"
         return 1
 
+    graph = []
     argument_list_file = args.argument_list_file
     if argument_list_file:
         if not os.path.isfile(argument_list_file):
@@ -360,15 +361,24 @@ def main():
 
             line_args = line.split(" -")
             line_args = [arg if arg[0] is "-" else ("-" + arg) for arg in line_args]
-            line_args.append("--clang-arguments=\"{}\"".format(args.clang_arguments))
+            line_args.append("--clang-arguments={}".format(args.clang_arguments))
 
             line_args = parse_args(line_args)
-            graph = build_uml_class_diagram_node_and_relationship(line_args)
-            print graph
-            return
+
+            node_and_relationship = build_uml_class_diagram_node_and_relationship(line_args)
+            if not node_and_relationship:
+                return 1
+
+            graph = graph + node_and_relationship
+
     else:
         graph = build_uml_class_diagram_node_and_relationship(args)
+
+    if graph:
         print "\n".join(graph)
+        return 0
+
+    return 1
 
 
 if __name__ == "__main__":
