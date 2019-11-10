@@ -3,6 +3,7 @@ import json
 import re
 import argparse
 import os
+import shlex
 from parse_cpp_file import search_class_in_file
 
 
@@ -357,10 +358,7 @@ def main():
             lines = f.readlines()
 
         for line in lines:
-            line = line.strip()
-
-            line_args = line.split(" -")
-            line_args = [arg if arg[0] is "-" else ("-" + arg) for arg in line_args]
+            line_args = shlex.split(line)
             line_args.append("--clang-arguments={}".format(args.clang_arguments))
 
             line_args = parse_args(line_args)
