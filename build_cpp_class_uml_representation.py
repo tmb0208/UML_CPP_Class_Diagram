@@ -1,31 +1,22 @@
 #!/usr/bin/python
 import json
-import sys
 import re
 import argparse
 import os
 from parse_cpp_file import search_class_in_file
 
 
-def blockPrint():
-    sys.stdout = open(os.devnull, 'w')
-
-
-def enablePrint():
-    sys.stdout = sys.__stdout__
-
-
 def get_uml_class_diagram_relationships():
     return ["association", "dependency", "aggregation", "composition", "inheritance", "realization"]
 
 
-def parse_args():
+def parse_args(args=None):
     default_relationship_labeldistance_value = 2
 
     parser = argparse.ArgumentParser(
         description='Builds uml class diagram from header file and/or relationship between '
                     'classes which are represented in graphviz dot language. '
-                    'Elther FILE_PATH or RELATIONSHIP_TYPE is required. '
+                    'Elther FILE_PATH or RELATIONSHIP_TYPE or ARGUMENT_LIST_FILE is required. '
                     'C++ files parsing is based on clang library')
 
     parser.add_argument('-f', '--file-path', type=str,
@@ -33,7 +24,9 @@ def parse_args():
     parser.add_argument('-c', '--class-name', type=str,
                         help='Name of class to extract (Use "::" for nested classes). '
                              'By default basename of FILE_PATH would be set')
-    parser.add_argument('-a', '--clang_arguments', type=str,
+    parser.add_argument('-alf', '--argument-list-file', type=str,
+                        help='Path to file where every line is argument to this executable.')
+    parser.add_argument('-a', '--clang-arguments', type=str,
                         help='Arguments passed to clang before parsing')
 
     parser.add_argument('-t', '--relationship-type', type=str,
@@ -58,12 +51,12 @@ def parse_args():
                              'By default = "{}")'.format(
                                  default_relationship_labeldistance_value))
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     # Check error
     err = None
-    if not args.file_path and not args.relationship_type:
-        err = "Error: Neither FILE_PATH nor RELATIONSHIP_TYPE is set"
+    if not args.file_path and not args.relationship_type and not args.argument_list_file:
+        err = "Error: Neither FILE_PATH nor RELATIONSHIP_TYPE nor FILE_LIST is set"
     elif args.relationship_type and not args.relationship_dependee:
         err = "Error: RELATIONSHIP_TYPE is set, but RELATIONSHIP_DEPENDEE is not"
     elif args.relationship_type and not args.file_path and not args.relationship_depender:
@@ -89,10 +82,12 @@ def parse_cpp_classes(cpp_file_path, class_pattern, args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
-    args = args.split(" ")
+    if args:
+        args = args.split(" ")
     classes = search_class_in_file(cpp_file_path, class_pattern, args)
     if not classes:
-        raise ValueError("Error: No class matching pattern: {}".format(class_pattern))
+        raise ValueError("Error: No class matching pattern '{}' in file '{}'".format(
+            class_pattern, cpp_file_path))
         return None
     elif len(classes) > 1:
         classes_names = []
@@ -309,30 +304,29 @@ def build_relationship(depender, dependee, rtype,
     return "\"{}\" -> \"{}\" {}".format(depender, dependee, edge_attributes)
 
 
-def main(argv):
-    args = parse_args()
-    if not args:
-        print "Error: Argument parser error"
-        return 1
+def build_uml_class_diagram_node_and_relationship(args):
+    result = []
 
+    cpp_class = None
     if args.file_path:
         try:
             cpp_class = parse_cpp_classes(args.file_path, args.class_name, args.clang_arguments)
-            if not cpp_class:
-                return 1
+            if cpp_class:
+                node = build_uml_class_diagram_node(
+                    cpp_class["full_name"], cpp_class["fields"], cpp_class["methods"])
+                result.append(node)
         except ValueError as error:
             print(error)
-            return 1
-
-        full_class_name = cpp_class["full_name"]
-
-        node = build_uml_class_diagram_node(
-            full_class_name, cpp_class["fields"], cpp_class["methods"])
-        print node
+            return None
 
     if args.relationship_type:
         if not args.relationship_depender:
-            args.relationship_depender = full_class_name
+            if not cpp_class:
+                raise ValueError(
+                    "Error: Neither RELATIONSHIP_DEPENDER is set nor cpp class is parsed")
+                return None
+
+            args.relationship_depender = cpp_class["full_name"]
 
         relationship = build_relationship(args.relationship_depender,
                                           args.relationship_dependee,
@@ -341,8 +335,41 @@ def main(argv):
                                           args.relationship_label,
                                           args.relationship_headlabel,
                                           args.relationship_labeldistance)
-        print relationship
+        result.append(relationship)
+
+    return result
+
+
+def main():
+    args = parse_args()
+
+    if not args:
+        print "Error: Argument parser error"
+        return 1
+
+    argument_list_file = args.argument_list_file
+    if argument_list_file:
+        if not os.path.isfile(argument_list_file):
+            raise ValueError("Error: No such file: '{}'".format(argument_list_file))
+
+        with open(argument_list_file) as f:
+            lines = f.readlines()
+
+        for line in lines:
+            line = line.strip()
+
+            line_args = line.split(" -")
+            line_args = [arg if arg[0] is "-" else ("-" + arg) for arg in line_args]
+            line_args.append("--clang-arguments=\"{}\"".format(args.clang_arguments))
+
+            line_args = parse_args(line_args)
+            graph = build_uml_class_diagram_node_and_relationship(line_args)
+            print graph
+            return
+    else:
+        graph = build_uml_class_diagram_node_and_relationship(args)
+        print "\n".join(graph)
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    exit(main())

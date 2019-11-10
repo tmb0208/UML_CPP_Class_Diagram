@@ -34,7 +34,6 @@ def read_extent(file_path, extent):
     strip_left = sc
 
     result = result[strip_left:-strip_right]
-    result = result.replace("\n", " ").replace("\r", " ")
     result = ' '.join(result.split())
     return result
 
@@ -69,17 +68,18 @@ def match_template(declaration):
     return None
 
 
+# TODO should be removed
 def match_method_parameters(method_declaration, method_name):
     match = re.search(r"{}\s*\(".format(method_name), method_declaration)
     if not match:
-        raise ValueError("Could not match method name '{}': {}". format(
+        raise ValueError("Error: Could not match method name '{}' in method declaration '{}'".format(
             method_name, method_declaration))
         return None
 
     s = match.start() + len(method_name) + 1
     e = find_corresponding_closing_parenthese(method_declaration, match.end() - 1, "(", ")")
     if not e:
-        raise IndexError("No matching closing parentheses")
+        raise IndexError("Error: No matching closing parentheses")
         return None
 
     if s == e:
@@ -98,7 +98,7 @@ def match_method_type(method_declaration, method_name):
 
     match = re.search(r"{}\s*\(".format(method_name), result)
     if not match:
-        raise ValueError("Could not match method name '{}': {}". format(
+        raise ValueError("Error: Could not match method name '{}' in method declaration '{}'". format(
             method_name, method_declaration))
         return None
 
@@ -116,7 +116,7 @@ def match_method_qualifiers(method_declaration, method_name):
 
     match = re.search(r"{}\s*\(\s*\)".format(method_name), result)
     if not match:
-        raise ValueError("Could not match method name '{}': {}". format(
+        raise ValueError("Error: Could not match method name '{}' in method declaration '{}'". format(
             method_name, method_declaration))
         return None
 
@@ -126,95 +126,78 @@ def match_method_qualifiers(method_declaration, method_name):
     return result
 
 
-def split_method_parameters(parameters):
-    results = []
+def build_property_node(name, declaration):
+    result = {}
 
-    mask = parameters
-    brackets = {"(": ")", "<": ">", "[": "]"}
-    for b in brackets:
-        while True:
-            s = mask.find(b)
-            if s == -1:
-                break
+    result["name"] = name
+    result["declaration"] = declaration
+    if name:
+        name_match = re.search(r"\s+{}\s*(=|$)".format(name), declaration)
 
-            e = find_corresponding_closing_parenthese(mask, s, b, brackets[b])
-            mask = mask[:s] + ("#" * (e + 1 - s)) + mask[e + 1:]
+        default = None
+        if name_match:
+            if len(declaration) != name_match.end():
+                default = declaration[name_match.end():].strip()
+        result["default"] = default
 
-    start_pos = 0
-    while True:
-        comma_pos = mask.find(",", start_pos)
-        if comma_pos == -1:
-            break
-
-        result = parameters[start_pos:comma_pos]
-        result = result.strip()
-        results.append(result)
-
-        start_pos = comma_pos + 1
-
-    results.append(parameters[start_pos:])
-
-    return results
-
-
-def build_propery_node(declaration, name=None):
-    name_match = re.search(
-        r"\s*{}\s*(=|$)".format(name if name else r"[a-zA-Z_][a-zA-Z0-9_]*"), declaration)
-    if not name_match:
-        raise ValueError("Could not match declaration name: {}". format(declaration))
-
-    if not name:
-        name = declaration[name_match.start():name_match.end() - 1].strip()
-
-    default = ""
-    if len(declaration) != name_match.end():
-        default = declaration[name_match.end():].strip()
-
-    type = declaration[:name_match.start()].strip()
+        type = declaration[:name_match.start()].strip()
+    else:
+        type = declaration
+    result["type"] = type
 
     qualifiers = []
     if re.search(r"(^|\s+)static(\s+|$)", type):
         qualifiers.append("static")
 
+    if re.search(r"(^|\s+)const(\s+|$)", type):
+        qualifiers.append("const")
+
     if re.search(r"(^|\s+)mutable(\s+|$)", type):
         qualifiers.append("mutable")
+    result["qualifiers"] = qualifiers
 
-    return {"declaration": declaration,
-            "name": name,
-            "default": default,
-            "type": type,
-            "qualifiers": qualifiers}
+    return result
 
 
-def build_method_parameters_node(parameters):
+def parse_method_parameters(name, method_nodes, file_path):
     results = []
-    if not parameters:
-        return results
 
-    parameters = split_method_parameters(parameters)
-    for parameter in parameters:
-        results.append(build_propery_node(parameter))
+    for i in method_nodes:
+        if i.kind is clang.cindex.CursorKind.PARM_DECL:
+            name = i.spelling
+            declaration = read_extent(file_path, i.extent)
+
+            result = build_property_node(name, declaration)
+            results.append(result)
 
     return results
 
 
-def build_method_node(method_declaration, method_name):
-    results = {}
-    results["name"] = method_name
-    results["declaration"] = method_declaration
+def parse_method(method_node, file_path):
+    result = {}
 
-    template = match_template(method_declaration)
+    name = match_name(method_node.spelling)
+    result["name"] = name
 
-    type = match_method_type(method_declaration, method_name)
-    results["type"] = type
+    declaration = read_extent(file_path, method_node.extent)
+    result["declaration"] = declaration
 
-    parameters = match_method_parameters(method_declaration, method_name)
-    results["parameters"] = build_method_parameters_node(parameters)
+    type = match_method_type(declaration, name)
+    result["type"] = type
+
+    result["parameters"] = parse_method_parameters(name, method_node.get_children(), file_path)
 
     qualifiers = []
 
+    template = match_template(declaration)
     if template:
         qualifiers.append("template")
+
+    if method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR:
+        qualifiers.append("constructor")
+
+    elif method_node.kind is clang.cindex.CursorKind.DESTRUCTOR:
+        qualifiers.append("destructor")
 
     if re.search(r"(^|\s+)virtual(\s+|$)", type):
         qualifiers.append("virtual")
@@ -225,7 +208,7 @@ def build_method_node(method_declaration, method_name):
     if re.search(r"(^|\s+)explicit(\s+|$)", type):
         qualifiers.append("explicit")
 
-    qualifiers_string = match_method_qualifiers(method_declaration, method_name)
+    qualifiers_string = match_method_qualifiers(declaration, name)
     if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
         qualifiers.append("override")
 
@@ -241,9 +224,21 @@ def build_method_node(method_declaration, method_name):
     if re.search(r"(^|\s+)=\s*default(\s+|$)", qualifiers_string):
         qualifiers.append("default")
 
-    results["qualifiers"] = qualifiers
+    result["qualifiers"] = qualifiers
 
-    return results
+    return result
+
+
+def match_name(spelling):
+    match_operator = re.search(r"operator\s*(?!\.|::|\?:|sizeof)", spelling)
+    if match_operator:
+        return spelling
+
+    match = re.search(r"^\s*[a-zA-Z_][a-zA-Z0-9_]*\s*", spelling)
+    if match:
+        return match.group(0)
+
+    return None
 
 
 def parse_class_methods_and_fields(class_nodes, file_path):
@@ -264,22 +259,15 @@ def parse_class_methods_and_fields(class_nodes, file_path):
               i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE or
               i.kind is clang.cindex.CursorKind.DESTRUCTOR or
               i.kind is clang.cindex.CursorKind.CONSTRUCTOR):
-            name = i.spelling
-            declaration = read_extent(file_path, i.extent)
-            method = build_method_node(declaration, name)
-
+            method = parse_method(i, file_path)
             method["access_specifier"] = access_specifier.name
-            if i.kind is clang.cindex.CursorKind.CONSTRUCTOR:
-                method["qualifiers"].append("constructor")
-            elif i.kind is clang.cindex.CursorKind.DESTRUCTOR:
-                method["qualifiers"].append("destructor")
 
             methods.append(method)
 
         elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
             name = i.spelling
             declaration = read_extent(file_path, i.extent)
-            field = build_propery_node(declaration, name)
+            field = build_property_node(name, declaration)
             field["access_specifier"] = access_specifier.name
             fields.append(field)
 
@@ -317,7 +305,8 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
                 return result
 
         elif (i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE or
-              i.kind is clang.cindex.CursorKind.CLASS_DECL):
+              i.kind is clang.cindex.CursorKind.CLASS_DECL or
+              i.kind is clang.cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION):
             name = i.spelling
 
             declaration = read_extent(file_path, i.extent)
@@ -338,7 +327,8 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
 
 def search_class_in_file(file_path, class_pattern, args):
     index = clang.cindex.Index.create()
-    translation_unit = index.parse(file_path, args=args)
+    translation_unit = index.parse(
+        file_path, args=args, options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
     nodes = filter_node_list_by_file(
         translation_unit.cursor.get_children(), translation_unit.spelling)
 
