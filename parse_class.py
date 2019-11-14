@@ -4,12 +4,11 @@ import os
 from enum import Enum
 
 
-def filter_node_list_by_file(nodes, file_name):
+def filter_nodes_by_file_name(nodes, file_name):
     result = []
-
-    for i in nodes:
-        if i.location.file.name == file_name:
-            result.append(i)
+    for node in nodes:
+        if node.location.file.name == file_name:
+            result.append(node)
 
     return result
 
@@ -364,7 +363,7 @@ def search_class_in_file(file_path, class_pattern, args):
     try:
         translation_unit = index.parse(
             file_path, args=args, options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
-        nodes = filter_node_list_by_file(
+        nodes = filter_nodes_by_file_name(
             translation_unit.cursor.get_children(), translation_unit.spelling)
 
         return search_class(nodes, class_pattern, file_path)
