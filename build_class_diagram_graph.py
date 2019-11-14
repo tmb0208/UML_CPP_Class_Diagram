@@ -455,19 +455,3 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
-
-
-def build_graph(content):
-    template = ('digraph "Class Diagram"\n'
-                '{{\n'
-                '\tbgcolor = transparent;\n'
-                '\trankdir = LR;\n'
-                '\tedge [fontname = Helvetica, fontsize = 10, labelfontname = Helvetica, '
-                'labelfontsize = 10];\n'
-                '\tnode [fontname = Helvetica, fontsize = 10, shape = none, margin = 0, '
-                'style = filled, fillcolor = grey75, fontcolor = black ];\n'
-                '\n'
-                '{}\n'
-                '}}')
-
-    return template.format(content)
