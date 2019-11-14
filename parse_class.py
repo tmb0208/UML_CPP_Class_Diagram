@@ -1,7 +1,12 @@
 import clang.cindex
 import re
 import os
+import sys
 from enum import Enum
+
+sys.path.insert(1, os.path.join("parser", "utils"))
+
+from extent import Extent
 
 
 def filter_nodes_by_file_name(nodes, file_name):
@@ -10,29 +15,6 @@ def filter_nodes_by_file_name(nodes, file_name):
         if node.location.file.name == file_name:
             result.append(node)
 
-    return result
-
-
-def read_extent(file_path, extent):
-    with open(file_path) as f:
-        content = f.readlines()
-
-    # adjust
-    sl = extent.start.line - 1
-    sc = extent.start.column - 1
-    el = extent.end.line - 1
-    ec = extent.end.column - 1
-
-    result = ""
-    for i in range(sl, el + 1):
-        result += content[i]
-
-    end_line = content[el]
-    strip_right = len(end_line) - ec
-    strip_left = sc
-
-    result = result[strip_left:-strip_right]
-    result = ' '.join(result.split())
     return result
 
 
@@ -169,7 +151,8 @@ def parse_method_parameters(name, method_nodes, file_path):
     for i in method_nodes:
         if i.kind is clang.cindex.CursorKind.PARM_DECL:
             name = i.spelling
-            declaration = read_extent(file_path, i.extent)
+            extent = Extent.from_cindex_extent(i.extent)
+            declaration = extent.read(file_path)
 
             result = build_property_node(name, declaration)
             results.append(result)
@@ -204,7 +187,8 @@ def parse_method(method_node, file_path):
 
     result["name"] = name
 
-    declaration = read_extent(file_path, method_node.extent)
+    extent = Extent.from_cindex_extent(method_node.extent)
+    declaration = extent.read(file_path)
     result["declaration"] = declaration
 
     type = match_method_type(declaration, name)
@@ -279,7 +263,8 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
 
         elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
             name = i.spelling
-            declaration = read_extent(file_path, i.extent)
+            extent = Extent.from_cindex_extent(i.extent)
+            declaration = extent.read(file_path)
             field = build_property_node(name, declaration)
             field["access_specifier"] = access_specifier.name
             fields.append(field)
@@ -326,7 +311,8 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
               i.kind is clang.cindex.CursorKind.STRUCT_DECL):
             name = i.spelling
 
-            declaration = read_extent(file_path, i.extent)
+            extent = Extent.from_cindex_extent(i.extent)
+            declaration = extent.read(file_path)
             full_name = match_full_class_name(declaration)
             if full_name and namespace:
                 full_name = add_namespace_before_class_name(full_name, name, namespace)
