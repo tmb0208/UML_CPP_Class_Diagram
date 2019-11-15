@@ -1,5 +1,6 @@
 import os
 
+
 class Extent:
     def __init__(self, start_line, start_column, end_line, end_column):
         self.start_line = start_line

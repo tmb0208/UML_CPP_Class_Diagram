@@ -3,7 +3,7 @@ import re
 import argparse
 import os
 import shlex
-from parse_class import search_class_in_file
+from parser.parse_class import search_class_in_file
 
 
 def get_uml_class_diagram_relationships():
