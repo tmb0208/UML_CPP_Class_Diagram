@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import clang.cindex
 import re
 import os
@@ -7,6 +8,7 @@ from enum import Enum
 sys.path.insert(1, os.path.join("parser", "utils"))
 
 from extent import Extent
+from utils import find_closing_bracket
 
 
 def filter_nodes_by_file_name(nodes, file_name):
@@ -18,31 +20,12 @@ def filter_nodes_by_file_name(nodes, file_name):
     return result
 
 
-def find_corresponding_closing_parenthese(string, pos=0, opening="(", closing=")"):
-    stack = 0
-
-    for i, c in enumerate(string[pos:]):
-        if c == opening:
-            stack += 1
-        elif c == closing:
-            stack -= 1
-            if stack < 0:
-                raise IndexError("No matching opening parentheses")
-                return None
-
-            if stack == 0:
-                return pos + i
-
-    raise IndexError("No matching closing parentheses")
-    return None
-
-
 def match_template(declaration):
     m = re.search(r"template\s*<", declaration)
     if m:
         s = m.start()
-        e = find_corresponding_closing_parenthese(declaration, m.end() - 1, "<", ">") + 1
-        if e:
+        e = find_closing_bracket(declaration, ">", m.end() - 1) + 1
+        if e != -1:
             return declaration[s:e]
 
     return None
@@ -57,8 +40,8 @@ def match_method_parameters(method_declaration, method_name):
         return None
 
     s = match.start() + len(method_name) + 1
-    e = find_corresponding_closing_parenthese(method_declaration, match.end() - 1, "(", ")")
-    if not e:
+    e = find_closing_bracket(method_declaration, ")", match.end() - 1)
+    if e == -1:
         raise IndexError("Error: No matching closing parentheses")
         return None
 
