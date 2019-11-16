@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from utils import find_closing_bracket
+from utils import StringWithBrackets
 from extent import Extent
 import clang.cindex
 import re
@@ -21,7 +21,7 @@ def match_template(declaration):
     m = re.search(r"template\s*<", declaration)
     if m:
         s = m.start()
-        e = find_closing_bracket(declaration, ">", m.end() - 1) + 1
+        e = StringWithBrackets(declaration).find_any_of_brackets([">"], 1, m.end() - 1) + 1
         if e != -1:
             return declaration[s:e]
 
@@ -37,7 +37,7 @@ def match_method_parameters(method_declaration, method_name):
         return None
 
     s = match.start() + len(method_name) + 1
-    e = find_closing_bracket(method_declaration, ")", match.end() - 1)
+    e = StringWithBrackets(method_declaration).find_any_of_brackets([")"], 1, match.end() - 1)
     if e == -1:
         raise IndexError("Error: No matching closing parentheses")
         return None
