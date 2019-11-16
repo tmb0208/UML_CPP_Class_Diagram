@@ -39,15 +39,15 @@ def match_template(declaration):
                 declaration))
         return None
 
-    template_declaration = declaration[template_start:parameters_end + 1]
-    return template_declaration.strip()
+    return Extent.make_string_extent(template_start, parameters_end + 1)
 
 
 def match_method_type(method_declaration, method_name):
     result = method_declaration
-    template = match_template(method_declaration)
-    if template:
-        result = method_declaration.replace(template, "")
+    template_extent = match_template(method_declaration)
+    if template_extent:
+        result = method_declaration[:template_extent.start_column] + \
+            method_declaration[template_extent.end_column:]
 
     match = re.search(r"{}\s*\(".format(method_name), result)
     if not match:
@@ -71,8 +71,7 @@ def match_method_qualifiers(declaration):
                 declaration))
         return None
 
-    qualifiers = declaration[parameters_end + 1:]
-    return qualifiers.rstrip(';').strip()
+    return Extent.make_string_extent(parameters_end + 1, len(declaration))
 
 
 def build_property_node(name, declaration):
@@ -121,7 +120,7 @@ def parse_method_parameters(name, method_nodes, file_path):
         if i.kind is clang.cindex.CursorKind.PARM_DECL:
             name = i.spelling
             extent = Extent.from_cindex_extent(i.extent)
-            declaration = extent.read(file_path)
+            declaration = extent.read_from_file(file_path)
 
             result = build_property_node(name, declaration)
             results.append(result)
@@ -157,7 +156,7 @@ def parse_method(method_node, file_path):
     result["name"] = name
 
     extent = Extent.from_cindex_extent(method_node.extent)
-    declaration = extent.read(file_path)
+    declaration = extent.read_from_file(file_path)
     result["declaration"] = declaration
 
     type = match_method_type(declaration, name)
@@ -167,8 +166,8 @@ def parse_method(method_node, file_path):
 
     qualifiers = []
 
-    template = match_template(declaration)
-    if template:
+    template_extent = match_template(declaration)
+    if template_extent:
         qualifiers.append("template")
 
     if method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR:
@@ -186,7 +185,9 @@ def parse_method(method_node, file_path):
     if re.search(r"(^|\s+)explicit(\s+|$)", type):
         qualifiers.append("explicit")
 
-    qualifiers_string = match_method_qualifiers(declaration)
+    qualifiers_extent = match_method_qualifiers(declaration)
+    qualifiers_string = qualifiers_extent.read_from_string(declaration)
+    qualifiers_string = qualifiers_string.strip()
     if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
         qualifiers.append("override")
 
@@ -233,7 +234,7 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
         elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
             name = i.spelling
             extent = Extent.from_cindex_extent(i.extent)
-            declaration = extent.read(file_path)
+            declaration = extent.read_from_file(file_path)
             field = build_property_node(name, declaration)
             field["access_specifier"] = access_specifier.name
             fields.append(field)
@@ -281,7 +282,7 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
             name = i.spelling
 
             extent = Extent.from_cindex_extent(i.extent)
-            declaration = extent.read(file_path)
+            declaration = extent.read_from_file(file_path)
             full_name = match_full_class_name(declaration)
             if full_name and namespace:
                 full_name = add_namespace_before_class_name(full_name, name, namespace)
