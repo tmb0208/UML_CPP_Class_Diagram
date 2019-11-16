@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from utils import StringWithBrackets
+from string_with_brackets import StringWithBrackets
 from extent import Extent
 import clang.cindex
 import re
