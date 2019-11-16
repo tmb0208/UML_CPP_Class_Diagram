@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import re
 
 
 class StringWithBrackets:
@@ -52,5 +53,35 @@ class StringWithBrackets:
                              "opened brackets: {}".format(self.string, start_pos,
                                                           open_bracket_stack))
             return -1
+
+        return -1
+
+    def find_outside_brackets(self, value, start=0):
+        if 0 > start or start >= len(self.string):
+            return -1
+
+        while True:
+            end = self.find_any_of_brackets(self.brackets_dict.keys(), 1, start)
+            if end == -1:
+                break
+
+            value_pos = self.string.find(value, start, end)
+            if value_pos != -1:
+                return value_pos
+
+            last_open_bracket = self.string[end]
+            corresponding_back_bracket = self.brackets_dict[last_open_bracket]
+            start = self.find_any_of_brackets(corresponding_back_bracket, 1, end)
+            if start == -1:
+                raise IndexError(
+                    "Closed bracket '{}' isn't found in string '{}' starting from pos {}".format(
+                        corresponding_back_bracket, self.string, start))
+                return -1
+
+            start += 1  # start from next after closed bracket position
+
+        value_pos = self.string.find(value, start)
+        if value_pos != -1:
+            return value_pos
 
         return -1

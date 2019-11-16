@@ -28,28 +28,6 @@ def match_template(declaration):
     return None
 
 
-# TODO should be removed
-def match_method_parameters(method_declaration, method_name):
-    match = re.search(r"{}\s*\(".format(method_name), method_declaration)
-    if not match:
-        raise ValueError("Error: Could not match method name '{}' in method declaration '{}'".format(
-            method_name, method_declaration))
-        return None
-
-    s = match.start() + len(method_name) + 1
-    e = StringWithBrackets(method_declaration).find_any_of_brackets([")"], 1, match.end() - 1)
-    if e == -1:
-        raise IndexError("Error: No matching closing parentheses")
-        return None
-
-    if s == e:
-        return None
-
-    result = method_declaration[s:e]
-    result = result.strip()
-    return result
-
-
 def match_method_type(method_declaration, method_name):
     result = method_declaration
     template = match_template(method_declaration)
@@ -58,8 +36,9 @@ def match_method_type(method_declaration, method_name):
 
     match = re.search(r"{}\s*\(".format(method_name), result)
     if not match:
-        raise ValueError("Error: Could not match method name '{}' in method declaration '{}'". format(
-            method_name, method_declaration))
+        raise ValueError(
+            "Error: Could not match method name '{}' in method declaration '{}'". format(
+                method_name, method_declaration))
         return None
 
     result = result[:match.start()]
@@ -67,23 +46,18 @@ def match_method_type(method_declaration, method_name):
     return result
 
 
-def match_method_qualifiers(method_declaration, method_name):
-    result = method_declaration
+def match_method_qualifiers(declaration):
+    declaration_with_brackets = StringWithBrackets(declaration)
 
-    parameters = match_method_parameters(method_declaration, method_name)
-    if parameters:
-        result = result.replace(parameters, "")
-
-    match = re.search(r"{}\s*\(\s*\)".format(method_name), result)
-    if not match:
-        raise ValueError("Error: Could not match method name '{}' in method declaration '{}'". format(
-            method_name, method_declaration))
+    parameters_end = declaration_with_brackets.find_any_of_brackets(")")
+    if parameters_end == -1:
+        raise ValueError(
+            "Error: Could not find end of method parameters in method declaration '{}'".format(
+                declaration))
         return None
 
-    result = result[match.end():]
-    result = result.strip()
-    result = result.rstrip(";")
-    return result
+    qualifiers = declaration[parameters_end + 1:]
+    return qualifiers.rstrip(';').strip()
 
 
 def build_property_node(name, declaration):
@@ -197,7 +171,7 @@ def parse_method(method_node, file_path):
     if re.search(r"(^|\s+)explicit(\s+|$)", type):
         qualifiers.append("explicit")
 
-    qualifiers_string = match_method_qualifiers(declaration, name)
+    qualifiers_string = match_method_qualifiers(declaration)
     if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
         qualifiers.append("override")
 
