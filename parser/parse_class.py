@@ -40,6 +40,7 @@ def build_property_node(name, declaration):
         type = declaration[:name_match.start()].strip()
     else:
         type = declaration
+
     result["type"] = type
 
     qualifiers = []
@@ -104,7 +105,7 @@ def parse_method(method_node, file_path):
 
     result["parameters"] = parse_method_parameters(name, method_node.get_children(), file_path)
 
-    mathod_parser = MethodParser(declaration, name)
+    mathod_parser = MethodParser(declaration)
 
     type_extent = mathod_parser.match_method_type()
     type = type_extent.read_from_string(declaration)

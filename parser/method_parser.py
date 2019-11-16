@@ -1,12 +1,12 @@
 #!/usr/bin/python
 from extent import Extent
 from string_with_brackets import StringWithBrackets
+import re
 
 
 class MethodParser:
-    def __init__(self, declaration, name):
+    def __init__(self, declaration):
         self.declaration = declaration
-        self.name = name
 
     def match_template(self):
         template_keyword = "template"
@@ -34,13 +34,24 @@ class MethodParser:
 
     def match_method_name(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
-        name_start = declaration_with_brackets.find_outside_brackets(self.name)
-        if name_start == -1:
-            raise ValueError("Error: Could not find name '{}' in method declaration '{}'".format(
-                self.name, self.declaration))
+        parameters_start = declaration_with_brackets.find_any_of_brackets('(')
+        declaration_until_parameters = self.declaration[:parameters_start]
+
+        identifiers = re.finditer(r"(?<![a-zA-Z_0-9])[a-zA-Z_][a-zA-Z_0-9]*(?![a-zA-Z_0-9])",
+                                  declaration_until_parameters)
+
+        # get last identifier before parameters
+        name = None
+        for name in identifiers:
+            pass
+
+        if not name:
+            raise ValueError(
+                "Error: Could not find name in method declaration '{}'".format(
+                    self.declaration))
             return None
 
-        return Extent.make_string_extent(name_start, name_start + len(self.name))
+        return Extent.make_string_extent(name.start(), name.end())
 
     def match_method_type(self):
         template_extent = self.match_template()
