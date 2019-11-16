@@ -23,7 +23,7 @@ def build_property_node(name, declaration):
     result["name"] = name
     result["declaration"] = declaration
     if name:
-        name_match = re.search(r"\s*{}\s*(=|{}|$)".format(name, "{"), declaration)
+        name_match = re.search(r"\s*{}\s*(=|{{|$)".format(name), declaration)
 
         if not name_match:
             raise ValueError(
@@ -116,6 +116,7 @@ def parse_method(method_node, file_path):
     template_extent = mathod_parser.match_template()
     if template_extent:
         qualifiers.append("template")
+        result["template_declaration"] = template_extent.read_from_string(declaration)
 
     if method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR:
         qualifiers.append("constructor")
