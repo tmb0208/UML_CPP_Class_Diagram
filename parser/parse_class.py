@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from extent import Extent
-from method_parser import MethodParser
+from class_parser import ClassParser
 import clang.cindex
 import re
 import os
@@ -17,115 +17,15 @@ def filter_nodes_by_file_name(nodes, file_name):
     return result
 
 
-def build_property_node(name, declaration):
-    result = {}
-
-    result["name"] = name
-    result["declaration"] = declaration
-    if name:
-        name_match = re.search(r"\s*{}\s*(=|{{|$)".format(name), declaration)
-
-        if not name_match:
-            raise ValueError(
-                "Error: Could not match property name '{}' in declaration '{}'". format(
-                    name, declaration))
-
-        # TODO: Parse default
-        # default = None
-        # if name_match:
-        #     if len(declaration) != name_match.end():
-        #         default = declaration[name_match.end():].strip()
-        # result["default"] = default
-
-        type = declaration[:name_match.start()].strip()
-    else:
-        type = declaration
-
-    result["type"] = type
-
-    qualifiers = []
-    if re.search(r"(^|\s+)static(\s+|$)", type):
-        qualifiers.append("static")
-
-    if re.search(r"(^|\s+)const(\s+|$)", type):
-        qualifiers.append("const")
-
-    if re.search(r"(^|\s+)mutable(\s+|$)", type):
-        qualifiers.append("mutable")
-    result["qualifiers"] = qualifiers
-
-    return result
-
-
-def build_method_node(name, declaration, parameters, is_constructor, is_destructor):
-    result = {}
-
-    result["name"] = name
-    result["declaration"] = declaration
-    result["parameters"] = parameters
-
-    mathod_parser = MethodParser(declaration)
-
-    type_extent = mathod_parser.match_method_type()
-    type = type_extent.read_from_string(declaration)
-    type = type.strip()
-    result["type"] = type
-
-    qualifiers = []
-
-    template_extent = mathod_parser.match_template()
-    if template_extent:
-        qualifiers.append("template")
-        result["template_declaration"] = template_extent.read_from_string(declaration)
-
-    if is_constructor:
-        qualifiers.append("constructor")
-
-    elif is_destructor:
-        qualifiers.append("destructor")
-
-    if re.search(r"(^|\s+)virtual(\s+|$)", type):
-        qualifiers.append("virtual")
-
-    if re.search(r"(^|\s+)static(\s+|$)", type):
-        qualifiers.append("static")
-
-    if re.search(r"(^|\s+)explicit(\s+|$)", type):
-        qualifiers.append("explicit")
-
-    qualifiers_extent = mathod_parser.match_method_qualifiers()
-    qualifiers_string = qualifiers_extent.read_from_string(declaration)
-    qualifiers_string = qualifiers_string.strip()
-    if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
-        qualifiers.append("override")
-
-    if re.search(r"(^|\s+)const(\s+|$)", qualifiers_string):
-        qualifiers.append("const")
-
-    if re.search(r"(^|\s+)=\s*0(\s+|$)", qualifiers_string):
-        qualifiers.append("pure")
-
-    if re.search(r"(^|\s+)=\s*delete(\s+|$)", qualifiers_string):
-        qualifiers.append("deleted")
-
-    if re.search(r"(^|\s+)=\s*default(\s+|$)", qualifiers_string):
-        qualifiers.append("default")
-
-    result["qualifiers"] = qualifiers
-
-    return result
-
-
 def parse_method_parameters(name, method_nodes, file_path):
     results = []
 
     for i in method_nodes:
         if i.kind is clang.cindex.CursorKind.PARM_DECL:
             name = i.spelling
-            extent = Extent.from_cindex_extent(i.extent)
-            declaration = extent.read_from_file(file_path)
+            declaration = Extent.from_cindex_extent(i.extent).read_from_file(file_path)
 
-            result = build_property_node(name, declaration)
+            result = ClassParser.parse_property_node(name, declaration)
             results.append(result)
 
     return results
@@ -159,7 +59,8 @@ def parse_method(method_node, file_path):
     is_constructor = method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR
     is_destructor = method_node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
-    return build_method_node(name, declaration, parameters, is_constructor, is_destructor)
+    return ClassParser.parse_method_node(
+        name, declaration, parameters, is_constructor, is_destructor)
 
 
 def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
@@ -189,7 +90,7 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
             name = i.spelling
             extent = Extent.from_cindex_extent(i.extent)
             declaration = extent.read_from_file(file_path)
-            field = build_property_node(name, declaration)
+            field = ClassParser.parse_property_node(name, declaration)
             field["access_specifier"] = access_specifier.name
             fields.append(field)
 
