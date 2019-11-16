@@ -57,6 +57,65 @@ def build_property_node(name, declaration):
     return result
 
 
+def build_method_node(name, declaration, parameters, is_constructor, is_destructor):
+    result = {}
+
+    result["name"] = name
+    result["declaration"] = declaration
+    result["parameters"] = parameters
+
+    mathod_parser = MethodParser(declaration)
+
+    type_extent = mathod_parser.match_method_type()
+    type = type_extent.read_from_string(declaration)
+    type = type.strip()
+    result["type"] = type
+
+    qualifiers = []
+
+    template_extent = mathod_parser.match_template()
+    if template_extent:
+        qualifiers.append("template")
+        result["template_declaration"] = template_extent.read_from_string(declaration)
+
+    if is_constructor:
+        qualifiers.append("constructor")
+
+    elif is_destructor:
+        qualifiers.append("destructor")
+
+    if re.search(r"(^|\s+)virtual(\s+|$)", type):
+        qualifiers.append("virtual")
+
+    if re.search(r"(^|\s+)static(\s+|$)", type):
+        qualifiers.append("static")
+
+    if re.search(r"(^|\s+)explicit(\s+|$)", type):
+        qualifiers.append("explicit")
+
+    qualifiers_extent = mathod_parser.match_method_qualifiers()
+    qualifiers_string = qualifiers_extent.read_from_string(declaration)
+    qualifiers_string = qualifiers_string.strip()
+    if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
+        qualifiers.append("override")
+
+    if re.search(r"(^|\s+)const(\s+|$)", qualifiers_string):
+        qualifiers.append("const")
+
+    if re.search(r"(^|\s+)=\s*0(\s+|$)", qualifiers_string):
+        qualifiers.append("pure")
+
+    if re.search(r"(^|\s+)=\s*delete(\s+|$)", qualifiers_string):
+        qualifiers.append("deleted")
+
+    if re.search(r"(^|\s+)=\s*default(\s+|$)", qualifiers_string):
+        qualifiers.append("default")
+
+    result["qualifiers"] = qualifiers
+
+    return result
+
+
 def parse_method_parameters(name, method_nodes, file_path):
     results = []
 
@@ -91,70 +150,16 @@ def extract_operator_name(spelling, declaration):
 
 
 def parse_method(method_node, file_path):
-    result = {}
-
     name = method_node.spelling
     if "<" in name:
         name = match_method_name(name)
 
-    result["name"] = name
+    declaration = Extent.from_cindex_extent(method_node.extent).read_from_file(file_path)
+    parameters = parse_method_parameters(name, method_node.get_children(), file_path)
+    is_constructor = method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR
+    is_destructor = method_node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
-    extent = Extent.from_cindex_extent(method_node.extent)
-    declaration = extent.read_from_file(file_path)
-    result["declaration"] = declaration
-
-    result["parameters"] = parse_method_parameters(name, method_node.get_children(), file_path)
-
-    mathod_parser = MethodParser(declaration)
-
-    type_extent = mathod_parser.match_method_type()
-    type = type_extent.read_from_string(declaration)
-    type = type.strip()
-    result["type"] = type
-
-    qualifiers = []
-
-    template_extent = mathod_parser.match_template()
-    if template_extent:
-        qualifiers.append("template")
-        result["template_declaration"] = template_extent.read_from_string(declaration)
-
-    if method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR:
-        qualifiers.append("constructor")
-
-    elif method_node.kind is clang.cindex.CursorKind.DESTRUCTOR:
-        qualifiers.append("destructor")
-
-    if re.search(r"(^|\s+)virtual(\s+|$)", type):
-        qualifiers.append("virtual")
-
-    if re.search(r"(^|\s+)static(\s+|$)", type):
-        qualifiers.append("static")
-
-    if re.search(r"(^|\s+)explicit(\s+|$)", type):
-        qualifiers.append("explicit")
-
-    qualifiers_extent = mathod_parser.match_method_qualifiers()
-    qualifiers_string = qualifiers_extent.read_from_string(declaration)
-    qualifiers_string = qualifiers_string.strip()
-    if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
-        qualifiers.append("override")
-
-    if re.search(r"(^|\s+)const(\s+|$)", qualifiers_string):
-        qualifiers.append("const")
-
-    if re.search(r"(^|\s+)=\s*0(\s+|$)", qualifiers_string):
-        qualifiers.append("pure")
-
-    if re.search(r"(^|\s+)=\s*delete(\s+|$)", qualifiers_string):
-        qualifiers.append("deleted")
-
-    if re.search(r"(^|\s+)=\s*default(\s+|$)", qualifiers_string):
-        qualifiers.append("default")
-
-    result["qualifiers"] = qualifiers
-
-    return result
+    return build_method_node(name, declaration, parameters, is_constructor, is_destructor)
 
 
 def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
