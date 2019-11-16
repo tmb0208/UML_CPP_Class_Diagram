@@ -18,14 +18,29 @@ def filter_nodes_by_file_name(nodes, file_name):
 
 
 def match_template(declaration):
-    m = re.search(r"template\s*<", declaration)
-    if m:
-        s = m.start()
-        e = StringWithBrackets(declaration).find_any_of_brackets([">"], 1, m.end() - 1) + 1
-        if e != -1:
-            return declaration[s:e]
+    template_keyword = "template"
+    declaration_with_brackets = StringWithBrackets(declaration)
 
-    return None
+    template_start = declaration_with_brackets.find_outside_brackets(template_keyword)
+    if template_start == -1:
+        return None
+
+    parameters_start = declaration_with_brackets.find_any_of_brackets("<", 1, template_start)
+    if parameters_start == -1:
+        raise ValueError(
+            "Error: Could not find template parameters in method declaration '{}'".format(
+                declaration))
+        return None
+
+    parameters_end = declaration_with_brackets.find_any_of_brackets(">", 1, parameters_start)
+    if parameters_end == -1:
+        raise ValueError(
+            "Error: Could not find end of template parameters in method declaration '{}'".format(
+                declaration))
+        return None
+
+    template_declaration = declaration[template_start:parameters_end + 1]
+    return template_declaration.strip()
 
 
 def match_method_type(method_declaration, method_name):
