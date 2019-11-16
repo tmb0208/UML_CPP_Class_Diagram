@@ -1,6 +1,6 @@
 #!/usr/bin/python
-from string_with_brackets import StringWithBrackets
 from extent import Extent
+from method_parser import MethodParser
 import clang.cindex
 import re
 import os
@@ -15,63 +15,6 @@ def filter_nodes_by_file_name(nodes, file_name):
             result.append(node)
 
     return result
-
-
-def match_template(declaration):
-    template_keyword = "template"
-    declaration_with_brackets = StringWithBrackets(declaration)
-
-    template_start = declaration_with_brackets.find_outside_brackets(template_keyword)
-    if template_start == -1:
-        return None
-
-    parameters_start = declaration_with_brackets.find_any_of_brackets("<", 1, template_start)
-    if parameters_start == -1:
-        raise ValueError(
-            "Error: Could not find template parameters in method declaration '{}'".format(
-                declaration))
-        return None
-
-    parameters_end = declaration_with_brackets.find_any_of_brackets(">", 1, parameters_start)
-    if parameters_end == -1:
-        raise ValueError(
-            "Error: Could not find end of template parameters in method declaration '{}'".format(
-                declaration))
-        return None
-
-    return Extent.make_string_extent(template_start, parameters_end + 1)
-
-
-def match_method_type(method_declaration, method_name):
-    result = method_declaration
-    template_extent = match_template(method_declaration)
-    if template_extent:
-        result = method_declaration[:template_extent.start_column] + \
-            method_declaration[template_extent.end_column:]
-
-    match = re.search(r"{}\s*\(".format(method_name), result)
-    if not match:
-        raise ValueError(
-            "Error: Could not match method name '{}' in method declaration '{}'". format(
-                method_name, method_declaration))
-        return None
-
-    result = result[:match.start()]
-    result = result.strip()
-    return result
-
-
-def match_method_qualifiers(declaration):
-    declaration_with_brackets = StringWithBrackets(declaration)
-
-    parameters_end = declaration_with_brackets.find_any_of_brackets(")")
-    if parameters_end == -1:
-        raise ValueError(
-            "Error: Could not find end of method parameters in method declaration '{}'".format(
-                declaration))
-        return None
-
-    return Extent.make_string_extent(parameters_end + 1, len(declaration))
 
 
 def build_property_node(name, declaration):
@@ -159,14 +102,18 @@ def parse_method(method_node, file_path):
     declaration = extent.read_from_file(file_path)
     result["declaration"] = declaration
 
-    type = match_method_type(declaration, name)
-    result["type"] = type
-
     result["parameters"] = parse_method_parameters(name, method_node.get_children(), file_path)
+
+    mathod_parser = MethodParser(declaration, name)
+
+    type_extent = mathod_parser.match_method_type()
+    type = type_extent.read_from_string(declaration)
+    type = type.strip()
+    result["type"] = type
 
     qualifiers = []
 
-    template_extent = match_template(declaration)
+    template_extent = mathod_parser.match_template()
     if template_extent:
         qualifiers.append("template")
 
@@ -185,7 +132,7 @@ def parse_method(method_node, file_path):
     if re.search(r"(^|\s+)explicit(\s+|$)", type):
         qualifiers.append("explicit")
 
-    qualifiers_extent = match_method_qualifiers(declaration)
+    qualifiers_extent = mathod_parser.match_method_qualifiers()
     qualifiers_string = qualifiers_extent.read_from_string(declaration)
     qualifiers_string = qualifiers_string.strip()
     if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
