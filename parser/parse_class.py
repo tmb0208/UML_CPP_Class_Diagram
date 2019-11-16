@@ -73,7 +73,7 @@ def parse_method_parameters(name, method_nodes, file_path):
 
 
 # WORKAROUND Template Construct/Destructor
-def remove_template(spelling):
+def match_method_name(spelling):
     match = re.search(r"^~?[a-zA-Z_][a-zA-Z0-9_]*", spelling)
     if not match:
         raise ValueError("Error: Could not match method name in spelling '{}'". format(spelling))
@@ -95,7 +95,7 @@ def parse_method(method_node, file_path):
 
     name = method_node.spelling
     if "<" in name:
-        name = remove_template(name)
+        name = match_method_name(name)
 
     result["name"] = name
 
