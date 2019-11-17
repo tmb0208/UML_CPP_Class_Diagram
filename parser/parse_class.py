@@ -17,16 +17,11 @@ def filter_nodes_by_file_name(nodes, file_name):
     return result
 
 
-def parse_method_parameters(name, method_nodes, file_path):
+def filter_method_parameters(method_nodes):
     results = []
-
-    for i in method_nodes:
-        if i.kind is clang.cindex.CursorKind.PARM_DECL:
-            name = i.spelling
-            declaration = Extent.from_cindex_extent(i.extent).read_from_file(file_path)
-
-            result = ClassParser.parse_property_node(name, declaration)
-            results.append(result)
+    for node in method_nodes:
+        if node.kind is clang.cindex.CursorKind.PARM_DECL:
+            results.append(node)
 
     return results
 
@@ -49,13 +44,29 @@ def extract_operator_name(spelling, declaration):
     return None
 
 
+def parse_method_parameter_node(parameters_node, file_path):
+    name = parameters_node.spelling
+    declaration = Extent.from_cindex_extent(parameters_node.extent).read_from_file(file_path)
+    return ClassParser.parse_property_node(name, declaration)
+
+
+def parse_method_parameters_nodes(parameters_nodes, file_path):
+    results = []
+    for node in parameters_nodes:
+        results.append(parse_method_parameter_node(node, file_path))
+
+    return results
+
+
 def parse_method(method_node, file_path):
     name = method_node.spelling
     if "<" in name:
         name = match_method_name(name)
 
     declaration = Extent.from_cindex_extent(method_node.extent).read_from_file(file_path)
-    parameters = parse_method_parameters(name, method_node.get_children(), file_path)
+    parameters_nodes = filter_method_parameters(method_node.get_children())
+    parameters = parse_method_parameters_nodes(parameters_nodes, file_path)
+
     is_constructor = method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR
     is_destructor = method_node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
