@@ -97,6 +97,29 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
     return methods, fields
 
 
+def parse_class_node(class_node, namespace, file_path):
+    result = {}
+
+    result["namespace"] = namespace
+
+    name = class_node.spelling
+    result["name"] = name
+
+    declaration = Extent.from_cindex_extent(class_node.extent).read_from_file(file_path)
+    full_name = match_full_class_name(declaration)
+    if full_name and namespace:
+        full_name = add_namespace_before_class_name(full_name, name, namespace)
+    result["full_name"] = full_name
+
+    is_struct = class_node.kind is clang.cindex.CursorKind.STRUCT_DECL
+    methods, fields = parse_class_methods_and_fields(
+        class_node.get_children(), file_path, is_struct)
+    result["methods"] = methods
+    result["fields"] = fields
+
+    return result
+
+
 def match_full_class_name(class_declaration):
     match = re.search(
         r"(class|struct)[^{]*[a-z_][a-z_0-9]*(::[a-z_][a-z_0-9]*)?\s*(<[^{]*>)?\s*{",
@@ -145,14 +168,7 @@ def search_class(nodes, class_pattern, file_path, namespace=""):
             # FIXME: Class definition, previosly declared in header in other class is not parsed
 
             if full_name and re.search(class_pattern, full_name):
-                is_struct = i.kind is clang.cindex.CursorKind.STRUCT_DECL
-                methods, fields = parse_class_methods_and_fields(
-                    i.get_children(), file_path, is_struct)
-                results.append({"name": name,
-                                "full_name": full_name,
-                                "namespace": namespace,
-                                "methods": methods,
-                                "fields": fields})
+                results.append(parse_class_node(i, namespace, file_path))
             else:
                 result = search_class(i.get_children(), class_pattern, file_path,
                                       "{}::{}".format(namespace, name) if namespace else name)
