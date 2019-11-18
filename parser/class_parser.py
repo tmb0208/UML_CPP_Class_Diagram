@@ -5,11 +5,14 @@ from method_parser import MethodParser
 
 class ClassParser:
     @staticmethod
-    def parse_property_node(name, declaration):
+    def parse_property_node(name, declaration, access_specifier=None):
         result = {}
 
         result["name"] = name
         result["declaration"] = declaration
+        if access_specifier:
+            result["access_specifier"] = access_specifier.name
+
         if name:
             name_match = re.search(r"\s*{}\s*(=|{{|$)".format(name), declaration)
 
@@ -45,12 +48,14 @@ class ClassParser:
         return result
 
     @staticmethod
-    def parse_method_node(name, declaration, parameters, is_constructor, is_destructor):
+    def parse_method_node(name, declaration, parameters, access_specifier, is_constructor,
+                          is_destructor):
         result = {}
 
         result["name"] = name
         result["declaration"] = declaration
         result["parameters"] = parameters
+        result["access_specifier"] = access_specifier.name
 
         mathod_parser = MethodParser(declaration)
 

@@ -35,15 +35,6 @@ def match_method_name(spelling):
     return match.group(0)
 
 
-# WORKAROUND operator method
-def extract_operator_name(spelling, declaration):
-    match_operator = re.search(r"operator\s*(?!\.|::|\?:|sizeof)", spelling)
-    if match_operator:
-        return spelling
-
-    return None
-
-
 def parse_method_parameter_node(parameters_node, file_path):
     name = parameters_node.spelling
     declaration = Extent.from_cindex_extent(parameters_node.extent).read_from_file(file_path)
@@ -58,7 +49,7 @@ def parse_method_parameters_nodes(parameters_nodes, file_path):
     return results
 
 
-def parse_method_node(method_node, file_path):
+def parse_method_node(method_node, access_specifier, file_path):
     name = method_node.spelling
     if "<" in name:
         name = match_method_name(name)
@@ -71,13 +62,13 @@ def parse_method_node(method_node, file_path):
     is_destructor = method_node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
     return ClassParser.parse_method_node(
-        name, declaration, parameters, is_constructor, is_destructor)
+        name, declaration, parameters, access_specifier, is_constructor, is_destructor)
 
 
-def parse_field_node(field_node, file_path):
+def parse_field_node(field_node, access_specifier, file_path):
     name = field_node.spelling
     declaration = Extent.from_cindex_extent(field_node.extent).read_from_file(file_path)
-    return ClassParser.parse_property_node(name, declaration)
+    return ClassParser.parse_property_node(name, declaration, access_specifier)
 
 
 def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
@@ -89,24 +80,19 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
     methods = []
     fields = []
     access_specifier = AccessSpecifier.PUBLIC if is_struct else AccessSpecifier.PRIVATE
-    for i in class_nodes:
-        if i.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
-            name = i.access_specifier.name
-            access_specifier = next((s for s in AccessSpecifier if s.name == name), None)
+    for node in class_nodes:
+        if node.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
+            access_specifier = next(
+                (s for s in AccessSpecifier if s.name == node.access_specifier.name), None)
 
-        elif (i.kind is clang.cindex.CursorKind.CXX_METHOD or
-              i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE or
-              i.kind is clang.cindex.CursorKind.DESTRUCTOR or
-              i.kind is clang.cindex.CursorKind.CONSTRUCTOR):
-            method = parse_method_node(i, file_path)
-            method["access_specifier"] = access_specifier.name
+        elif node.kind in [clang.cindex.CursorKind.CXX_METHOD,
+                           clang.cindex.CursorKind.FUNCTION_TEMPLATE,
+                           clang.cindex.CursorKind.DESTRUCTOR,
+                           clang.cindex.CursorKind.CONSTRUCTOR]:
+            methods.append(parse_method_node(node, access_specifier, file_path))
 
-            methods.append(method)
-
-        elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
-            field = parse_field_node(i, file_path)
-            field["access_specifier"] = access_specifier.name
-            fields.append(field)
+        elif node.kind is clang.cindex.CursorKind.FIELD_DECL:
+            fields.append(parse_field_node(node, access_specifier, file_path))
 
     return methods, fields
 
