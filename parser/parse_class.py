@@ -49,29 +49,29 @@ def parse_method_parameters_nodes(parameters_nodes, file_path):
     return results
 
 
-def parse_method_node(method_node, access_specifier, file_path):
-    name = method_node.spelling
+def parse_method_node(node, access_specifier, file_path):
+    name = node.spelling
     if "<" in name:
         name = match_method_name(name)
 
-    declaration = Extent.from_cindex_extent(method_node.extent).read_from_file(file_path)
-    parameters_nodes = filter_method_parameters(method_node.get_children())
+    declaration = Extent.from_cindex_extent(node.extent).read_from_file(file_path)
+    parameters_nodes = filter_method_parameters(node.get_children())
     parameters = parse_method_parameters_nodes(parameters_nodes, file_path)
 
-    is_constructor = method_node.kind is clang.cindex.CursorKind.CONSTRUCTOR
-    is_destructor = method_node.kind is clang.cindex.CursorKind.DESTRUCTOR
+    is_constructor = node.kind is clang.cindex.CursorKind.CONSTRUCTOR
+    is_destructor = node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
     return ClassParser.parse_method_node(
         name, declaration, parameters, access_specifier, is_constructor, is_destructor)
 
 
-def parse_field_node(field_node, access_specifier, file_path):
-    name = field_node.spelling
-    declaration = Extent.from_cindex_extent(field_node.extent).read_from_file(file_path)
+def parse_field_node(node, access_specifier, file_path):
+    name = node.spelling
+    declaration = Extent.from_cindex_extent(node.extent).read_from_file(file_path)
     return ClassParser.parse_property_node(name, declaration, access_specifier)
 
 
-def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
+def parse_class_methods_and_fields_nodes(nodes, file_path, is_struct):
     class AccessSpecifier(Enum):
         PRIVATE = 0
         PROTECTED = 1
@@ -80,7 +80,7 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
     methods = []
     fields = []
     access_specifier = AccessSpecifier.PUBLIC if is_struct else AccessSpecifier.PRIVATE
-    for node in class_nodes:
+    for node in nodes:
         if node.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
             access_specifier = next(
                 (s for s in AccessSpecifier if s.name == node.access_specifier.name), None)
@@ -97,23 +97,23 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
     return methods, fields
 
 
-def parse_class_node(class_node, namespace, file_path):
+def parse_class_node(node, namespace, file_path):
     result = {}
 
     result["namespace"] = namespace
 
-    name = class_node.spelling
+    name = node.spelling
     result["name"] = name
 
-    declaration = Extent.from_cindex_extent(class_node.extent).read_from_file(file_path)
+    declaration = Extent.from_cindex_extent(node.extent).read_from_file(file_path)
     full_name = match_full_class_name(declaration)
     if full_name and namespace:
         full_name = add_namespace_before_class_name(full_name, name, namespace)
     result["full_name"] = full_name
 
-    is_struct = class_node.kind is clang.cindex.CursorKind.STRUCT_DECL
-    methods, fields = parse_class_methods_and_fields(
-        class_node.get_children(), file_path, is_struct)
+    is_struct = node.kind is clang.cindex.CursorKind.STRUCT_DECL
+    methods, fields = parse_class_methods_and_fields_nodes(
+        node.get_children(), file_path, is_struct)
     result["methods"] = methods
     result["fields"] = fields
 
