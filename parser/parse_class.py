@@ -58,7 +58,7 @@ def parse_method_parameters_nodes(parameters_nodes, file_path):
     return results
 
 
-def parse_method(method_node, file_path):
+def parse_method_node(method_node, file_path):
     name = method_node.spelling
     if "<" in name:
         name = match_method_name(name)
@@ -72,6 +72,12 @@ def parse_method(method_node, file_path):
 
     return ClassParser.parse_method_node(
         name, declaration, parameters, is_constructor, is_destructor)
+
+
+def parse_field_node(field_node, file_path):
+    name = field_node.spelling
+    declaration = Extent.from_cindex_extent(field_node.extent).read_from_file(file_path)
+    return ClassParser.parse_property_node(name, declaration)
 
 
 def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
@@ -92,16 +98,13 @@ def parse_class_methods_and_fields(class_nodes, file_path, is_struct):
               i.kind is clang.cindex.CursorKind.FUNCTION_TEMPLATE or
               i.kind is clang.cindex.CursorKind.DESTRUCTOR or
               i.kind is clang.cindex.CursorKind.CONSTRUCTOR):
-            method = parse_method(i, file_path)
+            method = parse_method_node(i, file_path)
             method["access_specifier"] = access_specifier.name
 
             methods.append(method)
 
         elif i.kind is clang.cindex.CursorKind.FIELD_DECL:
-            name = i.spelling
-            extent = Extent.from_cindex_extent(i.extent)
-            declaration = extent.read_from_file(file_path)
-            field = ClassParser.parse_property_node(name, declaration)
+            field = parse_field_node(i, file_path)
             field["access_specifier"] = access_specifier.name
             fields.append(field)
 
