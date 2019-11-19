@@ -43,13 +43,17 @@ def parse_if_match_pattern(class_node, parent_nodes, pattern, file_path):
     # FIXME: Class definition, previosly declared in header in other class is not parsed
     parser = ClassNodeParser(class_node, parent_nodes, file_path)
     full_name = parser.build_class_full_name()
-    if full_name and re.search(pattern, full_name):
+    if full_name is None:
+        raise ValueError("Couldn't build full name. Class name: {}".format(class_node.spelling))
+        return None
+
+    if re.search(pattern, full_name):
         return parser.parse()
 
     return None
 
 
-def search_class_nodes(file_nodes, pattern, file_path):
+def parse_matching_class_nodes(file_nodes, pattern, file_path):
     results = []
 
     class_nodes = findall_class_nodes(file_nodes)
@@ -77,7 +81,7 @@ def search_class_in_file(file_path, class_pattern, args):
         nodes = filter_nodes_by_file_name(
             translation_unit.cursor.get_children(), translation_unit.spelling)
 
-        return search_class_nodes(nodes, class_pattern, file_path)
+        return parse_matching_class_nodes(nodes, class_pattern, file_path)
     except clang.cindex.TranslationUnitLoadError as error:
         print("Error: {}".format(error))
         print("File path: {}".format(file_path))
