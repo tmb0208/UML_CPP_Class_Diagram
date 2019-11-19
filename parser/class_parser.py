@@ -11,7 +11,7 @@ class ClassParser:
         result["name"] = name
         result["declaration"] = declaration
         if access_specifier:
-            result["access_specifier"] = access_specifier.name
+            result["access_specifier"] = access_specifier
 
         if name:
             name_match = re.search(r"\s*{}\s*(=|{{|$)".format(name), declaration)
@@ -55,7 +55,7 @@ class ClassParser:
         result["name"] = name
         result["declaration"] = declaration
         result["parameters"] = parameters
-        result["access_specifier"] = access_specifier.name
+        result["access_specifier"] = access_specifier
 
         mathod_parser = MethodParser(declaration)
 

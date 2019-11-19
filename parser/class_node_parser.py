@@ -42,7 +42,7 @@ class ClassNodeParser:
 
         return match.group(0)
 
-    def parse_method_node(self, node, access_specifier):
+    def parse_method_node(self, node):
         name = node.spelling
         if "<" in name:
             name = self.__match_method_name(name)
@@ -55,37 +55,31 @@ class ClassNodeParser:
         is_destructor = node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
         return ClassParser.parse_method_node(
-            name, declaration, parameters, access_specifier, is_constructor, is_destructor)
+            name, declaration, parameters, node.access_specifier.name, is_constructor, is_destructor)
 
-    def parse_field_node(self, node, access_specifier):
+    def parse_method_nodes(self, nodes):
+        results = []
+        for node in nodes:
+            if node.kind in [clang.cindex.CursorKind.CXX_METHOD,
+                             clang.cindex.CursorKind.FUNCTION_TEMPLATE,
+                             clang.cindex.CursorKind.DESTRUCTOR,
+                             clang.cindex.CursorKind.CONSTRUCTOR]:
+                results.append(self.parse_method_node(node))
+
+        return results
+
+    def parse_field_node(self, node):
         name = node.spelling
         declaration = Extent.from_cindex_extent(node.extent).read_from_file(self.file_path)
-        return ClassParser.parse_property_node(name, declaration, access_specifier)
+        return ClassParser.parse_property_node(name, declaration, node.access_specifier.name)
 
-    def parse_class_methods_and_fields_nodes(self, nodes, is_struct):
-        class AccessSpecifier(Enum):
-            PRIVATE = 0
-            PROTECTED = 1
-            PUBLIC = 2
-
-        methods = []
-        fields = []
-        access_specifier = AccessSpecifier.PUBLIC if is_struct else AccessSpecifier.PRIVATE
+    def parse_field_nodes(self, nodes):
+        results = []
         for node in nodes:
-            if node.kind is clang.cindex.CursorKind.CXX_ACCESS_SPEC_DECL:
-                access_specifier = next(
-                    (s for s in AccessSpecifier if s.name == node.access_specifier.name), None)
+            if node.kind is clang.cindex.CursorKind.FIELD_DECL:
+                results.append(self.parse_field_node(node))
 
-            elif node.kind in [clang.cindex.CursorKind.CXX_METHOD,
-                               clang.cindex.CursorKind.FUNCTION_TEMPLATE,
-                               clang.cindex.CursorKind.DESTRUCTOR,
-                               clang.cindex.CursorKind.CONSTRUCTOR]:
-                methods.append(self.parse_method_node(node, access_specifier))
-
-            elif node.kind is clang.cindex.CursorKind.FIELD_DECL:
-                fields.append(self.parse_field_node(node, access_specifier))
-
-        return methods, fields
+        return results
 
     @staticmethod
     def match_class_declaration(class_declaration):
@@ -137,13 +131,9 @@ class ClassNodeParser:
         return self.node.spelling
 
     def parse(self):
-        is_struct = self.node.kind is clang.cindex.CursorKind.STRUCT_DECL
-        methods, fields = self.parse_class_methods_and_fields_nodes(
-            self.node.get_children(), is_struct)
-
         return {"namespace": self.build_class_namespace(),
                 "name": self.node.spelling,
                 "full_name": self.build_class_full_name(),
                 "declaration": self.parse_class_declaration(),
-                "methods": methods,
-                "fields": fields}
+                "methods": self.parse_method_nodes(self.node.get_children()),
+                "fields": self.parse_field_nodes(self.node.get_children())}
