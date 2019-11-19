@@ -7,10 +7,11 @@ from enum import Enum
 
 
 class ClassNodeParser:
-    def __init__(self, node, namespace, file_path):
-        self.file_path = file_path
+    def __init__(self, node, parent_nodes, file_path):
         self.node = node
-        self.namespace = namespace
+        self.parent_nodes = parent_nodes
+        self.file_path = file_path
+        self.namespace = self.build_class_namespace()
 
     def parse_method_parameter_node(self, parameters_node):
         name = parameters_node.spelling
@@ -108,6 +109,14 @@ class ClassNodeParser:
         return "{}{}::{}".format(full_class_name[:class_name_match.start() + 1],
                                  namespace,
                                  full_class_name[class_name_match.start() + 1:])
+
+    def build_class_namespace(self):
+        result = str()
+        for node in self.parent_nodes:
+            name = node.spelling
+            result += "::{}".format(name) if result else name
+
+        return result
 
     def build_class_full_name(self):
         declaration = Extent.from_cindex_extent(self.node.extent).read_from_file(self.file_path)
