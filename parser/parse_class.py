@@ -5,86 +5,99 @@ import re
 import os
 
 
-def filter_nodes_by_file_name(nodes, file_name):
-    result = []
-    for node in nodes:
-        if node.location.file.name == file_name:
-            result.append(node)
+class FileNodeParser:
+    def __init__(self, file_path, clang_args=None):
+        self.file_path = file_path
+        self.clang_args = clang_args
+        self.options = clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES
 
-    return result
+        self.file_nodes = None
 
+    def _is_class(self, node_kind):
+        return node_kind in [clang.cindex.CursorKind.CLASS_TEMPLATE,
+                             clang.cindex.CursorKind.CLASS_DECL,
+                             clang.cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
+                             clang.cindex.CursorKind.STRUCT_DECL]
 
-def is_class(node_kind):
-    return node_kind in [clang.cindex.CursorKind.CLASS_TEMPLATE,
-                         clang.cindex.CursorKind.CLASS_DECL,
-                         clang.cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
-                         clang.cindex.CursorKind.STRUCT_DECL]
+    def _findall_class_nodes(self, nodes, parent_nodes=None):
+        results = []
 
+        if parent_nodes is None:
+            parent_nodes = []
 
-def findall_class_nodes(nodes, parent_nodes=None):
-    results = []
+        for node in nodes:
+            if node.kind is clang.cindex.CursorKind.NAMESPACE or self._is_class(node.kind):
+                if self._is_class(node.kind):
+                    results.append({"parent_nodes": parent_nodes, "class_node": node})
 
-    if parent_nodes is None:
-        parent_nodes = []
+                class_nodes = self._findall_class_nodes(node.get_children(), parent_nodes + [node])
+                if class_nodes:
+                    results = results + class_nodes
 
-    for node in nodes:
-        if node.kind is clang.cindex.CursorKind.NAMESPACE or is_class(node.kind):
-            if is_class(node.kind):
-                results.append({"parent_nodes": parent_nodes, "class_node": node})
+        return results
 
-            class_nodes = findall_class_nodes(node.get_children(), parent_nodes + [node])
-            if class_nodes:
-                results = results + class_nodes
+    def _parse_matching_class_node(self, class_node, parent_nodes, pattern):
+        # FIXME: Class definition, previosly declared in header in other class is not parsed
+        parser = ClassNodeParser(class_node, parent_nodes, self.file_path)
+        full_name = parser.build_class_full_name()
+        if full_name is None:
+            raise ValueError("Couldn't build full name. Class name: {}".format(class_node.spelling))
+            return None
 
-    return results
+        if re.search(pattern, full_name):
+            return parser.parse()
 
-
-def parse_if_match_pattern(class_node, parent_nodes, pattern, file_path):
-    # FIXME: Class definition, previosly declared in header in other class is not parsed
-    parser = ClassNodeParser(class_node, parent_nodes, file_path)
-    full_name = parser.build_class_full_name()
-    if full_name is None:
-        raise ValueError("Couldn't build full name. Class name: {}".format(class_node.spelling))
         return None
 
-    if re.search(pattern, full_name):
-        return parser.parse()
+    def _parse_matching_class_nodes(self, pattern):
+        results = []
 
-    return None
+        class_nodes = self._findall_class_nodes(self.file_nodes)
+        for node in class_nodes:
+            result = self._parse_matching_class_node(
+                node["class_node"], node["parent_nodes"], pattern)
+            if result:
+                results.append(result)
 
+        return results
 
-def parse_matching_class_nodes(file_nodes, pattern, file_path):
-    results = []
+    def _append_clang_source_args(self):
+        file_ext = os.path.splitext(self.file_path)[1]
+        if file_ext in [".cpp"]:
+            if self.clang_args is None:
+                self.clang_args = []
 
-    class_nodes = findall_class_nodes(file_nodes)
-    for node in class_nodes:
-        result = parse_if_match_pattern(
-            node["class_node"], node["parent_nodes"], pattern, file_path)
-        if result:
-            results.append(result)
+            arg = "-xc++"
+            if arg not in self.clang_args:
+                self.clang_args.append(arg)
 
-    return results
+    def _filter_nodes_by_file_name(self, nodes, file_name):
+        result = []
+        for node in nodes:
+            if node.location.file.name == file_name:
+                result.append(node)
 
+        return result
 
-def search_class_in_file(file_path, class_pattern, args):
-    index = clang.cindex.Index.create()
+    def _parse_file(self):
+        self._append_clang_source_args()
 
-    file_ext = os.path.splitext(file_path)[1]
-    if file_ext in [".cpp"]:
-        if not args:
-            args = []
-        args.append("-xc++")
+        index = clang.cindex.Index.create()
 
-    try:
-        translation_unit = index.parse(
-            file_path, args=args, options=clang.cindex.TranslationUnit.PARSE_SKIP_FUNCTION_BODIES)
-        nodes = filter_nodes_by_file_name(
-            translation_unit.cursor.get_children(), translation_unit.spelling)
+        try:
+            parsed_file = index.parse(self.file_path, args=self.clang_args, options=self.options)
 
-        return parse_matching_class_nodes(nodes, class_pattern, file_path)
-    except clang.cindex.TranslationUnitLoadError as error:
-        print("Error: {}".format(error))
-        print("File path: {}".format(file_path))
-        print("Class pattern: {}".format(class_pattern))
-        print("Args: {}".format(args))
-        return None
+            self.file_nodes = self._filter_nodes_by_file_name(parsed_file.cursor.get_children(),
+                                                              parsed_file.spelling)
+            return True
+        except clang.cindex.TranslationUnitLoadError as error:
+            print("Failed to parse file '{}' with clang args '{}': {}".format(
+                self.file_path, self.clang_args, error))
+            return False
+
+    def parse_class(self, class_pattern):
+        if self.file_nodes is None:
+            if not self._parse_file():
+                return None
+
+        return self._parse_matching_class_nodes(class_pattern)

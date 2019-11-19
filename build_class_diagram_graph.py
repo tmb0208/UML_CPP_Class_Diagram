@@ -3,7 +3,7 @@ import re
 import argparse
 import os
 import shlex
-from parser.parse_class import search_class_in_file
+from parser.parse_class import FileNodeParser
 
 
 def get_uml_class_diagram_relationships():
@@ -94,7 +94,7 @@ def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
-    classes = search_class_in_file(cpp_file_path, class_pattern, clang_args)
+    classes = FileNodeParser(cpp_file_path, clang_args).parse_class(class_pattern)
     if not classes:
         raise ValueError(
             "Error: No class matching pattern '{}' in file '{}', clang args: {}".format(
