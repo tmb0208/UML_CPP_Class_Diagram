@@ -18,18 +18,11 @@ class ClassNodeParser:
             parameters_node.extent).read_from_file(self.file_path)
         return ClassParser.parse_property_node(name, declaration)
 
-    def filter_method_parameters(self, method_nodes):
+    def parse_method_parameters_nodes(self, method_nodes):
         results = []
         for node in method_nodes:
             if node.kind is clang.cindex.CursorKind.PARM_DECL:
-                results.append(node)
-
-        return results
-
-    def parse_method_parameters_nodes(self, parameters_nodes):
-        results = []
-        for node in parameters_nodes:
-            results.append(self.parse_method_parameter_node(node))
+                results.append(self.parse_method_parameter_node(node))
 
         return results
 
@@ -48,8 +41,7 @@ class ClassNodeParser:
             name = self.__match_method_name(name)
 
         declaration = Extent.from_cindex_extent(node.extent).read_from_file(self.file_path)
-        parameters_nodes = self.filter_method_parameters(node.get_children())
-        parameters = self.parse_method_parameters_nodes(parameters_nodes)
+        parameters = self.parse_method_parameters_nodes(node.get_children())
 
         is_constructor = node.kind is clang.cindex.CursorKind.CONSTRUCTOR
         is_destructor = node.kind is clang.cindex.CursorKind.DESTRUCTOR
