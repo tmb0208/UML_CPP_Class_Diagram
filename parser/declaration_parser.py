@@ -4,7 +4,7 @@ from string_with_brackets import StringWithBrackets
 import re
 
 
-class MethodParser:
+class DeclarationParser:
     def __init__(self, declaration):
         self.declaration = declaration
 

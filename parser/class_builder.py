@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import re
-from method_parser import MethodParser
+from declaration_parser import DeclarationParser
 
 
 class ClassBuilder:
@@ -57,7 +57,7 @@ class ClassBuilder:
         result["parameters"] = parameters
         result["access_specifier"] = access_specifier
 
-        mathod_parser = MethodParser(declaration)
+        mathod_parser = DeclarationParser(declaration)
 
         type_extent = mathod_parser.match_method_type()
         type = type_extent.read_from_string(declaration)
