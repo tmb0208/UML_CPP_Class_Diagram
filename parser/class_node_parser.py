@@ -1,6 +1,6 @@
 #!/usr/bin/python
 from extent import Extent
-from class_parser import ClassParser
+from class_builder import ClassBuilder
 import clang.cindex
 import re
 from enum import Enum
@@ -16,7 +16,7 @@ class ClassNodeParser:
         name = parameters_node.spelling
         declaration = Extent.from_cindex_extent(
             parameters_node.extent).read_from_file(self.file_path)
-        return ClassParser.parse_property_node(name, declaration)
+        return ClassBuilder.build_property(name, declaration)
 
     def parse_method_parameters_nodes(self, method_nodes):
         results = []
@@ -46,8 +46,8 @@ class ClassNodeParser:
         is_constructor = node.kind is clang.cindex.CursorKind.CONSTRUCTOR
         is_destructor = node.kind is clang.cindex.CursorKind.DESTRUCTOR
 
-        return ClassParser.parse_method_node(
-            name, declaration, parameters, node.access_specifier.name, is_constructor, is_destructor)
+        return ClassBuilder.build_method(name, declaration, parameters, node.access_specifier.name,
+                                         is_constructor, is_destructor)
 
     def parse_method_nodes(self, nodes):
         results = []
@@ -63,7 +63,7 @@ class ClassNodeParser:
     def parse_field_node(self, node):
         name = node.spelling
         declaration = Extent.from_cindex_extent(node.extent).read_from_file(self.file_path)
-        return ClassParser.parse_property_node(name, declaration, node.access_specifier.name)
+        return ClassBuilder.build_property(name, declaration, node.access_specifier.name)
 
     def parse_field_nodes(self, nodes):
         results = []

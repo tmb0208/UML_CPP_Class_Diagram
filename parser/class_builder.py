@@ -3,9 +3,9 @@ import re
 from method_parser import MethodParser
 
 
-class ClassParser:
+class ClassBuilder:
     @staticmethod
-    def parse_property_node(name, declaration, access_specifier=None):
+    def build_property(name, declaration, access_specifier=None):
         result = {}
 
         result["name"] = name
@@ -48,8 +48,8 @@ class ClassParser:
         return result
 
     @staticmethod
-    def parse_method_node(name, declaration, parameters, access_specifier, is_constructor,
-                          is_destructor):
+    def build_method(name, declaration, parameters, access_specifier, is_constructor,
+                     is_destructor):
         result = {}
 
         result["name"] = name
