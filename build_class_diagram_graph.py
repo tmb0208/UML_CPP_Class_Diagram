@@ -73,7 +73,7 @@ def parse_args(args=None):
     if not args.class_pattern and args.file_path:
         file = os.path.split(args.file_path)[1]
         file_name = os.path.splitext(file)[0]
-        args.class_pattern = r"\b{}\b".format(file_name)
+        args.class_pattern = r"(:|\s|^){}(<|\s|$)".format(file_name)
 
     if not args.relationship_labeldistance:
         args.relationship_labeldistance = default_relationship_labeldistance_value

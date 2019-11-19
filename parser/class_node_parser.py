@@ -11,7 +11,6 @@ class ClassNodeParser:
         self.node = node
         self.parent_nodes = parent_nodes
         self.file_path = file_path
-        self.namespace = self.build_class_namespace()
 
     def parse_method_parameter_node(self, parameters_node):
         name = parameters_node.spelling
@@ -89,7 +88,7 @@ class ClassNodeParser:
         return methods, fields
 
     @staticmethod
-    def match_full_class_name(class_declaration):
+    def match_class_declaration(class_declaration):
         match = re.search(
             r"(class|struct)[^{]*[a-z_][a-z_0-9]*(::[a-z_][a-z_0-9]*)?\s*(<[^{]*>)?\s*{",
             class_declaration)
@@ -98,6 +97,7 @@ class ClassNodeParser:
 
         return class_declaration[:match.end() - 1].strip()
 
+    # UNUSED
     @staticmethod
     def add_namespace_before_class_name(full_class_name, class_name, namespace):
         class_name_match = re.search(r"\s*{}\s*".format(class_name), full_class_name)
@@ -110,6 +110,17 @@ class ClassNodeParser:
                                  namespace,
                                  full_class_name[class_name_match.start() + 1:])
 
+    def parse_class_declaration(self):
+        declaration_or_definition = Extent.from_cindex_extent(
+            self.node.extent).read_from_file(self.file_path)
+
+        result = self.match_class_declaration(declaration_or_definition)
+        if result is None:
+            raise ValueError("Could not match class declaration from '{}'". format(
+                declaration_or_definition))
+
+        return result
+
     def build_class_namespace(self):
         result = str()
         for node in self.parent_nodes:
@@ -119,21 +130,20 @@ class ClassNodeParser:
         return result
 
     def build_class_full_name(self):
-        declaration = Extent.from_cindex_extent(self.node.extent).read_from_file(self.file_path)
-        result = self.match_full_class_name(declaration)
-        if result and self.namespace:
-            result = self.add_namespace_before_class_name(
-                result, self.node.spelling, self.namespace)
+        namespace = self.build_class_namespace()
+        if namespace:
+            return "{}::{}".format(namespace, self.node.spelling)
 
-        return result
+        return self.node.spelling
 
     def parse(self):
         is_struct = self.node.kind is clang.cindex.CursorKind.STRUCT_DECL
         methods, fields = self.parse_class_methods_and_fields_nodes(
             self.node.get_children(), is_struct)
 
-        return {"namespace": self.namespace,
+        return {"namespace": self.build_class_namespace(),
                 "name": self.node.spelling,
                 "full_name": self.build_class_full_name(),
+                "declaration": self.parse_class_declaration(),
                 "methods": methods,
                 "fields": fields}
