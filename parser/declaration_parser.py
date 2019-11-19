@@ -4,75 +4,159 @@ from string_with_brackets import StringWithBrackets
 import re
 
 
-class DeclarationParser:
-    def __init__(self, declaration):
-        self.declaration = declaration
+def parse_field_declaration(declaration, name):
+    result = {}
 
-    def match_template(self):
-        template_keyword = "template"
-        declaration_with_brackets = StringWithBrackets(self.declaration)
+    if name:
+        name_match = re.search(r"\s*{}\s*(=|{{|$)".format(name), declaration)
 
-        template_start = declaration_with_brackets.find_outside_brackets(template_keyword)
-        if template_start == -1:
-            return None
-
-        parameters_start = declaration_with_brackets.find_any_of_brackets("<", 1, template_start)
-        if parameters_start == -1:
+        if not name_match:
             raise ValueError(
-                "Error: Could not find template parameters in method declaration '{}'".format(
-                    self.declaration))
-            return None
+                "Error: Could not match property name '{}' in declaration '{}'". format(
+                    name, declaration))
 
-        parameters_end = declaration_with_brackets.find_any_of_brackets(">", 1, parameters_start)
-        if parameters_end == -1:
-            raise ValueError(
-                "Error: Could not find template parameters end in method declaration '{}'".format(
-                    self.declaration))
-            return None
+        # TODO: Parse default
+        # default = None
+        # if name_match:
+        #     if len(declaration) != name_match.end():
+        #         default = declaration[name_match.end():].strip()
+        # result["default"] = default
 
-        return Extent.make_string_extent(template_start, parameters_end + 1)
+        type = declaration[:name_match.start()].strip()
+    else:
+        type = declaration
 
-    def match_method_name(self):
-        declaration_with_brackets = StringWithBrackets(self.declaration)
-        parameters_start = declaration_with_brackets.find_any_of_brackets('(')
-        declaration_until_parameters = self.declaration[:parameters_start]
+    result["type"] = type
 
-        identifiers = re.finditer(r"(?<![a-zA-Z_0-9])[a-zA-Z_][a-zA-Z_0-9]*(?![a-zA-Z_0-9])",
-                                  declaration_until_parameters)
+    qualifiers = []
+    if re.search(r"(^|\s+)static(\s+|$)", type):
+        qualifiers.append("static")
 
-        # get last identifier before parameters
-        name = None
-        for name in identifiers:
-            pass
+    if re.search(r"(^|\s+)const(\s+|$)", type):
+        qualifiers.append("const")
 
-        if not name:
-            raise ValueError(
-                "Error: Could not find name in method declaration '{}'".format(
-                    self.declaration))
-            return None
+    if re.search(r"(^|\s+)mutable(\s+|$)", type):
+        qualifiers.append("mutable")
+    result["qualifiers"] = qualifiers
 
-        return Extent.make_string_extent(name.start(), name.end())
+    return result
 
-    def match_method_type(self):
-        template_extent = self.match_template()
-        name_extent = self.match_method_name()
-        if not name_extent:
-            raise ValueError("Error: Could not match type in method declaration '{}'".format(
-                self.declaration))
-            return None
 
-        type_start = (template_extent.end_column + 1) if template_extent else 0
-        type_end = name_extent.start_column - 1
-        return Extent.make_string_extent(type_start, type_end)
+def _match_template(declaration):
+    template_keyword = "template"
+    declaration_with_brackets = StringWithBrackets(declaration)
 
-    def match_method_qualifiers(self):
-        declaration_with_brackets = StringWithBrackets(self.declaration)
+    template_start = declaration_with_brackets.find_outside_brackets(template_keyword)
+    if template_start == -1:
+        return None
 
-        parameters_end = declaration_with_brackets.find_any_of_brackets(")")
-        if parameters_end == -1:
-            raise ValueError(
-                "Error: Could not find end of method parameters in method declaration '{}'".format(
-                    self.declaration))
-            return None
+    parameters_start = declaration_with_brackets.find_any_of_brackets("<", 1, template_start)
+    if parameters_start == -1:
+        raise ValueError(
+            "Error: Could not find template parameters in method declaration '{}'".format(
+                declaration))
+        return None
 
-        return Extent.make_string_extent(parameters_end + 1, len(self.declaration))
+    parameters_end = declaration_with_brackets.find_any_of_brackets(">", 1, parameters_start)
+    if parameters_end == -1:
+        raise ValueError(
+            "Error: Could not find template parameters end in method declaration '{}'".format(
+                declaration))
+        return None
+
+    return Extent.make_string_extent(template_start, parameters_end + 1)
+
+
+def _match_method_name(declaration):
+    declaration_with_brackets = StringWithBrackets(declaration)
+    parameters_start = declaration_with_brackets.find_any_of_brackets('(')
+    declaration_until_parameters = declaration[:parameters_start]
+
+    identifiers = re.finditer(r"(?<![a-zA-Z_0-9])[a-zA-Z_][a-zA-Z_0-9]*(?![a-zA-Z_0-9])",
+                              declaration_until_parameters)
+
+    # get last identifier before parameters
+    name = None
+    for name in identifiers:
+        pass
+
+    if not name:
+        raise ValueError(
+            "Error: Could not find name in method declaration '{}'".format(
+                declaration))
+        return None
+
+    return Extent.make_string_extent(name.start(), name.end())
+
+
+def _match_method_type(declaration):
+    template_extent = _match_template(declaration)
+    name_extent = _match_method_name(declaration)
+    if not name_extent:
+        raise ValueError("Error: Could not match type in method declaration '{}'".format(
+            declaration))
+        return None
+
+    type_start = (template_extent.end_column + 1) if template_extent else 0
+    type_end = name_extent.start_column - 1
+    return Extent.make_string_extent(type_start, type_end)
+
+
+def _match_method_qualifiers(declaration):
+    declaration_with_brackets = StringWithBrackets(declaration)
+
+    parameters_end = declaration_with_brackets.find_any_of_brackets(")")
+    if parameters_end == -1:
+        raise ValueError(
+            "Error: Could not find end of method parameters in method declaration '{}'".format(
+                declaration))
+        return None
+
+    return Extent.make_string_extent(parameters_end + 1, len(declaration))
+
+
+def parse_method_declaration(declaration):
+    result = {}
+
+    type_extent = _match_method_type(declaration)
+    type = type_extent.read_from_string(declaration)
+    type = type.strip()
+    result["type"] = type
+
+    qualifiers = []
+
+    template_extent = _match_template(declaration)
+    if template_extent:
+        qualifiers.append("template")
+        result["template_declaration"] = template_extent.read_from_string(declaration)
+
+    if re.search(r"(^|\s+)virtual(\s+|$)", type):
+        qualifiers.append("virtual")
+
+    if re.search(r"(^|\s+)static(\s+|$)", type):
+        qualifiers.append("static")
+
+    if re.search(r"(^|\s+)explicit(\s+|$)", type):
+        qualifiers.append("explicit")
+
+    qualifiers_extent = _match_method_qualifiers(declaration)
+    qualifiers_string = qualifiers_extent.read_from_string(declaration)
+    qualifiers_string = qualifiers_string.strip()
+    if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
+        qualifiers.append("override")
+
+    if re.search(r"(^|\s+)const(\s+|$)", qualifiers_string):
+        qualifiers.append("const")
+
+    if re.search(r"(^|\s+)=\s*0(\s+|$)", qualifiers_string):
+        qualifiers.append("pure")
+
+    if re.search(r"(^|\s+)=\s*delete(\s+|$)", qualifiers_string):
+        qualifiers.append("deleted")
+
+    if re.search(r"(^|\s+)=\s*default(\s+|$)", qualifiers_string):
+        qualifiers.append("default")
+
+    result["qualifiers"] = qualifiers
+
+    return result
