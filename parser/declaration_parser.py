@@ -4,7 +4,7 @@ from string_with_brackets import StringWithBrackets
 import re
 
 
-def parse_field_declaration(declaration, name):
+def parse_property_declaration(declaration, name):
     result = {}
 
     if name:

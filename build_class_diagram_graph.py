@@ -4,6 +4,7 @@ import argparse
 import os
 import shlex
 from parser.file_node_parser import FileNodeParser
+from parser.declaration_parser import parse_method_declaration, parse_property_declaration
 
 
 def get_uml_class_diagram_relationships():
@@ -90,6 +91,36 @@ def parse_args(args=None):
     return args
 
 
+def extend_properties_with_declaration_info(properties):
+    for property in properties:
+        property.update(parse_property_declaration(property["declaration"], property["name"]))
+
+    return properties
+
+
+def extend_method_with_declaration_info(method):
+    qualifiers = method["qualifiers"]
+    method.update(parse_method_declaration(method["declaration"]))
+    method["qualifiers"] = method["qualifiers"] + qualifiers
+    method["parameters"] = extend_properties_with_declaration_info(method["parameters"])
+
+    return method
+
+
+def extend_methods_with_declaration_info(methods):
+    for method in methods:
+        method = extend_method_with_declaration_info(method)
+
+    return methods
+
+
+def extend_class_with_declaration_info(_class):
+    _class["methods"] = extend_methods_with_declaration_info(_class["methods"])
+    _class["fields"] = extend_properties_with_declaration_info(_class["fields"])
+
+    return _class
+
+
 def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
@@ -108,7 +139,8 @@ def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
             cpp_file_path, class_pattern, classes_full_names))
         return None
 
-    return classes[0]
+    result = extend_class_with_declaration_info(classes[0])
+    return result
 
 
 def replace_html_specific_characters(string):

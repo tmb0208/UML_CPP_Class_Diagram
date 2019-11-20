@@ -1,9 +1,7 @@
 #!/usr/bin/python
 from extent import Extent
-from class_builder import ClassBuilder
 import clang.cindex
 import re
-from enum import Enum
 
 
 class ClassNodeParser:
@@ -13,10 +11,9 @@ class ClassNodeParser:
         self.file_path = file_path
 
     def parse_method_parameter_node(self, parameters_node):
-        name = parameters_node.spelling
-        declaration = Extent.from_cindex_extent(
-            parameters_node.extent).read_from_file(self.file_path)
-        return ClassBuilder.build_property(name, declaration)
+        return {"name": parameters_node.spelling,
+                "declaration": Extent.from_cindex_extent(
+                    parameters_node.extent).read_from_file(self.file_path)}
 
     def parse_method_parameters_nodes(self, method_nodes):
         results = []
@@ -36,18 +33,27 @@ class ClassNodeParser:
         return match.group(0)
 
     def parse_method_node(self, node):
+        result = {}
+
+        result["access_specifier"] = node.access_specifier.name
+
         name = node.spelling
         if "<" in name:
             name = self.__match_method_name(name)
+        result["name"] = name
 
-        declaration = Extent.from_cindex_extent(node.extent).read_from_file(self.file_path)
-        parameters = self.parse_method_parameters_nodes(node.get_children())
+        result["declaration"] = Extent.from_cindex_extent(
+            node.extent).read_from_file(self.file_path)
+        result["parameters"] = self.parse_method_parameters_nodes(node.get_children())
 
-        is_constructor = node.kind is clang.cindex.CursorKind.CONSTRUCTOR
-        is_destructor = node.kind is clang.cindex.CursorKind.DESTRUCTOR
+        qualifiers = []
+        if node.kind is clang.cindex.CursorKind.CONSTRUCTOR:
+            qualifiers = ["constructor"]
+        elif node.kind is clang.cindex.CursorKind.DESTRUCTOR:
+            qualifiers = ["destructor"]
+        result["qualifiers"] = qualifiers
 
-        return ClassBuilder.build_method(name, declaration, parameters, node.access_specifier.name,
-                                         is_constructor, is_destructor)
+        return result
 
     def parse_method_nodes(self, nodes):
         results = []
@@ -61,9 +67,10 @@ class ClassNodeParser:
         return results
 
     def parse_field_node(self, node):
-        name = node.spelling
-        declaration = Extent.from_cindex_extent(node.extent).read_from_file(self.file_path)
-        return ClassBuilder.build_property(name, declaration, node.access_specifier.name)
+        return {"name": node.spelling,
+                "declaration": Extent.from_cindex_extent(node.extent).read_from_file(
+                    self.file_path),
+                "access_specifier": node.access_specifier.name}
 
     def parse_field_nodes(self, nodes):
         results = []
