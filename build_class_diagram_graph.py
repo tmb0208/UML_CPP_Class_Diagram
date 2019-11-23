@@ -3,7 +3,7 @@ import re
 import argparse
 import os
 import shlex
-from parser.file_node_parser import FileNodeParser
+from parser.cindex_wrapper.file_node_parser import FileNodeParser
 from parser.declaration_parser import parse_method_declaration, parse_property_declaration
 
 

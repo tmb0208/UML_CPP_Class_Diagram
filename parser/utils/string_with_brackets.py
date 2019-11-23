@@ -1,7 +1,4 @@
 #!/usr/bin/python
-import re
-
-
 class StringWithBrackets:
     def __init__(self, string):
         self.string = string

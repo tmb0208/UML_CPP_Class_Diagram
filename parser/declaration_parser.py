@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from extent import Extent
+from utils.extent import Extent
 from string_with_brackets import StringWithBrackets
 import re
 
