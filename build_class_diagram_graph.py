@@ -3,9 +3,7 @@ import re
 import argparse
 import os
 import shlex
-from parser.cindex_wrappers.file_node_parser import FileNodeParser
-from parser.declaration_parsers.function_declaration_parser import FunctionDeclarationParser
-from parser.declaration_parsers.property_declaration_parser import PropertyDeclarationParser
+from parser.class_parser import ClassParser
 
 
 def get_uml_class_diagram_relationships():
@@ -92,58 +90,17 @@ def parse_args(args=None):
     return args
 
 
-def extend_properties_with_declaration_info(properties):
-    for property in properties:
-        parsed_declaration = PropertyDeclarationParser(
-            property["declaration"], property["name"]).parse()
-        property.update(parsed_declaration)
-
-    return properties
-
-
-def extend_method_with_declaration_info(method):
-    qualifiers = method["qualifiers"]
-    parsed_declaration = FunctionDeclarationParser(method["declaration"]).parse()
-    method.update(parsed_declaration)
-    method["qualifiers"] = method["qualifiers"] + qualifiers
-    method["parameters"] = extend_properties_with_declaration_info(method["parameters"])
-
-    return method
-
-
-def extend_methods_with_declaration_info(methods):
-    for method in methods:
-        method = extend_method_with_declaration_info(method)
-
-    return methods
-
-
-def extend_class_with_declaration_info(_class):
-    _class["methods"] = extend_methods_with_declaration_info(_class["methods"])
-    _class["fields"] = extend_properties_with_declaration_info(_class["fields"])
-
-    return _class
-
-
 def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
-    classes = FileNodeParser(cpp_file_path, clang_args).parse_class(class_pattern)
-    if not classes:
+    result = ClassParser(cpp_file_path, class_pattern, clang_args).parse()
+    if result is None:
         raise ValueError(
             "Error: No class matching pattern '{}' in file '{}', clang args: {}".format(
                 class_pattern, cpp_file_path, clang_args))
         return None
-    elif len(classes) > 1:
-        classes_full_names = []
-        for c in classes:
-            classes_full_names.append(c["full_name"])
-        raise ValueError("Error: In file '{}' several classes are matching pattern '{}': {}".format(
-            cpp_file_path, class_pattern, classes_full_names))
-        return None
 
-    result = extend_class_with_declaration_info(classes[0])
     return result
 
 
