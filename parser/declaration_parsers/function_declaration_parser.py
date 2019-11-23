@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from ..string_with_brackets import StringWithBrackets
+from string_with_brackets import StringWithBrackets
 import re
 
 
