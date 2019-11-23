@@ -5,15 +5,13 @@ import re
 
 
 class ClassNodeParser:
-    def __init__(self, node, parent_nodes, file_path):
+    def __init__(self, node, parent_nodes):
         self.node = node
         self.parent_nodes = parent_nodes
-        self.file_path = file_path
 
     def parse_method_parameter_node(self, parameters_node):
         return {"name": parameters_node.spelling,
-                "declaration": Extent.from_cindex_extent(
-                    parameters_node.extent).read_from_file(self.file_path)}
+                "declaration": Extent.from_cindex_extent(parameters_node.extent).read()}
 
     def parse_method_parameters_nodes(self, method_nodes):
         results = []
@@ -42,8 +40,7 @@ class ClassNodeParser:
             name = self.__match_method_name(name)
         result["name"] = name
 
-        result["declaration"] = Extent.from_cindex_extent(
-            node.extent).read_from_file(self.file_path)
+        result["declaration"] = Extent.from_cindex_extent(node.extent).read()
         result["parameters"] = self.parse_method_parameters_nodes(node.get_children())
 
         qualifiers = []
@@ -68,8 +65,7 @@ class ClassNodeParser:
 
     def parse_field_node(self, node):
         return {"name": node.spelling,
-                "declaration": Extent.from_cindex_extent(node.extent).read_from_file(
-                    self.file_path),
+                "declaration": Extent.from_cindex_extent(node.extent).read(),
                 "access_specifier": node.access_specifier.name}
 
     def parse_field_nodes(self, nodes):
@@ -104,8 +100,7 @@ class ClassNodeParser:
                                  full_class_name[class_name_match.start() + 1:])
 
     def parse_class_declaration(self):
-        declaration_or_definition = Extent.from_cindex_extent(
-            self.node.extent).read_from_file(self.file_path)
+        declaration_or_definition = Extent.from_cindex_extent(self.node.extent).read()
 
         result = self.match_class_declaration(declaration_or_definition)
         if result is None:

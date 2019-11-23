@@ -29,7 +29,7 @@ class FunctionDeclarationParser:
                     self.declaration))
             return None
 
-        return Extent.make_string_extent(template_start, parameters_end + 1)
+        return Extent.make_string_extent(self.declaration, template_start, parameters_end + 1)
 
     def _match_name(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
@@ -50,7 +50,7 @@ class FunctionDeclarationParser:
                     self.declaration))
             return None
 
-        return Extent.make_string_extent(name.start(), name.end())
+        return Extent.make_string_extent(self.declaration, name.start(), name.end())
 
     def _match_type(self):
         template_extent = self._match_template()
@@ -62,7 +62,7 @@ class FunctionDeclarationParser:
 
         type_start = (template_extent.end_column + 1) if template_extent else 0
         type_end = name_extent.start_column - 1
-        return Extent.make_string_extent(type_start, type_end)
+        return Extent.make_string_extent(self.declaration, type_start, type_end)
 
     def _match_qualifiers(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
@@ -74,13 +74,13 @@ class FunctionDeclarationParser:
                     self.declaration))
             return None
 
-        return Extent.make_string_extent(parameters_end + 1, len(self.declaration))
+        return Extent.make_string_extent(self.declaration, parameters_end + 1, len(self.declaration))
 
     def parse(self):
         result = {}
 
         type_extent = self._match_type()
-        type = type_extent.read_from_string(self.declaration)
+        type = type_extent.read()
         type = type.strip()
         result["type"] = type
 
@@ -89,7 +89,7 @@ class FunctionDeclarationParser:
         template_extent = self._match_template()
         if template_extent:
             qualifiers.append("template")
-            result["template_declaration"] = template_extent.read_from_string(self.declaration)
+            result["template_declaration"] = template_extent.read()
 
         if re.search(r"(^|\s+)virtual(\s+|$)", type):
             qualifiers.append("virtual")
@@ -101,7 +101,7 @@ class FunctionDeclarationParser:
             qualifiers.append("explicit")
 
         qualifiers_extent = self._match_qualifiers()
-        qualifiers_string = qualifiers_extent.read_from_string(self.declaration)
+        qualifiers_string = qualifiers_extent.read()
         qualifiers_string = qualifiers_string.strip()
         if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
             qualifiers.append("override")

@@ -1,5 +1,4 @@
 #!/usr/bin/python
-from ..utils.extent import Extent
 import re
 
 

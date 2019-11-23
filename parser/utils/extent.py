@@ -3,27 +3,19 @@ import os
 
 
 class Extent:
-    def __init__(self, start_line, start_column, end_line, end_column):
+    def __init__(self, source, start_line, start_column, end_line, end_column):
+        self.source = source
         self.start_line = start_line
         self.start_column = start_column
         self.end_line = end_line
         self.end_column = end_column
 
-    def read_from_file(self, file_path):
-        if not os.path.isfile(file_path):
-            raise ValueError("Error: No such file: '{}'".format(file_path))
+    def read(self):
+        if not self.source:
+            return None
 
-        with open(file_path) as file:
-            return self.read_from_lines(file.readlines())
-
-        return None
-
-    def read_from_string(self, string):
-        return self.read_from_lines(string.split("\n"))
-
-    def read_from_lines(self, lines):
         result = []
-        for i, line in enumerate(lines):
+        for i, line in enumerate(self.source):
             if i in range(self.start_line, self.end_line + 1):
                 result.append(line)
 
@@ -35,12 +27,33 @@ class Extent:
         return result
 
     @staticmethod
+    def read_all_file_lines(file_path):
+        if not os.path.isfile(file_path):
+            raise ValueError("Error: No such file: '{}'".format(file_path))
+
+        with open(file_path) as file:
+            return file.readlines()
+
+        return None
+
+    @staticmethod
     def from_cindex_extent(extent):
-        return Extent(extent.start.line - 1,
+        start = extent.start
+        end = extent.end
+
+        if start.file.name != end.file.name:
+            raise ValueError("Start and end locations file path aren't equal: '{}', '{}'".format(
+                start.file.name, end.file.name))
+
+        source = Extent.read_all_file_lines(start.file.name)
+
+        return Extent(source,
+                      extent.start.line - 1,
                       extent.start.column - 1,
                       extent.end.line - 1,
                       extent.end.column - 1)
 
     @staticmethod
-    def make_string_extent(start_column, end_column):
-        return Extent(0, start_column, 0, end_column)
+    def make_string_extent(string, start_column, end_column):
+        source = string.split("\n")
+        return Extent(source, 0, start_column, 0, end_column)
