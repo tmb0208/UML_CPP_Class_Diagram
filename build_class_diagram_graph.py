@@ -4,7 +4,8 @@ import argparse
 import os
 import shlex
 from parser.cindex_wrapper.file_node_parser import FileNodeParser
-from parser.declaration_parser import parse_method_declaration, parse_property_declaration
+from parser.declaration_parsers.function_declaration_parser import FunctionDeclarationParser
+from parser.declaration_parsers.property_declaration_parser import PropertyDeclarationParser
 
 
 def get_uml_class_diagram_relationships():
@@ -93,14 +94,17 @@ def parse_args(args=None):
 
 def extend_properties_with_declaration_info(properties):
     for property in properties:
-        property.update(parse_property_declaration(property["declaration"], property["name"]))
+        parsed_declaration = PropertyDeclarationParser(
+            property["declaration"], property["name"]).parse()
+        property.update(parsed_declaration)
 
     return properties
 
 
 def extend_method_with_declaration_info(method):
     qualifiers = method["qualifiers"]
-    method.update(parse_method_declaration(method["declaration"]))
+    parsed_declaration = FunctionDeclarationParser(method["declaration"]).parse()
+    method.update(parsed_declaration)
     method["qualifiers"] = method["qualifiers"] + qualifiers
     method["parameters"] = extend_properties_with_declaration_info(method["parameters"])
 
