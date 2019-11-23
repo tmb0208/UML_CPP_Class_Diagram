@@ -9,10 +9,9 @@ class FunctionDeclarationParser:
         self.declaration = declaration
 
     def _match_template(self):
-        template_keyword = "template"
         declaration_with_brackets = StringWithBrackets(self.declaration)
 
-        template_start = declaration_with_brackets.find_outside_brackets(template_keyword)
+        template_start = declaration_with_brackets.find_outside_brackets("template")
         if template_start == -1:
             return None
 
