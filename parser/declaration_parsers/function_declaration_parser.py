@@ -1,10 +1,21 @@
 #!/usr/bin/python
-from ..utils.extent import Extent
 from ..string_with_brackets import StringWithBrackets
 import re
 
 
+class StringRange:
+    def __init__(self, string, start, end):
+        self.string = string
+        self.start = start
+        self.end = end
+
+    @property
+    def value(self):
+        return self.string[self.start:self.end]
+
+
 class FunctionDeclarationParser:
+
     def __init__(self, declaration):
         self.declaration = declaration
 
@@ -29,7 +40,7 @@ class FunctionDeclarationParser:
                     self.declaration))
             return None
 
-        return Extent.make_string_extent(self.declaration, template_start, parameters_end + 1)
+        return StringRange(self.declaration, template_start, parameters_end + 1)
 
     def _match_name(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
@@ -50,19 +61,19 @@ class FunctionDeclarationParser:
                     self.declaration))
             return None
 
-        return Extent.make_string_extent(self.declaration, name.start(), name.end())
+        return StringRange(self.declaration, name.start(), name.end())
 
     def _match_type(self):
-        template_extent = self._match_template()
-        name_extent = self._match_name()
-        if not name_extent:
+        template_range = self._match_template()
+        name_range = self._match_name()
+        if not name_range:
             raise ValueError("Error: Could not match type in method declaration '{}'".format(
                 self.declaration))
             return None
 
-        type_start = (template_extent.end_column + 1) if template_extent else 0
-        type_end = name_extent.start_column - 1
-        return Extent.make_string_extent(self.declaration, type_start, type_end)
+        type_start = (template_range.end + 1) if template_range else 0
+        type_end = name_range.start - 1
+        return StringRange(self.declaration, type_start, type_end)
 
     def _match_qualifiers(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
@@ -74,22 +85,22 @@ class FunctionDeclarationParser:
                     self.declaration))
             return None
 
-        return Extent.make_string_extent(self.declaration, parameters_end + 1, len(self.declaration))
+        return StringRange(self.declaration, parameters_end + 1, len(self.declaration))
 
     def parse(self):
         result = {}
 
-        type_extent = self._match_type()
-        type = type_extent.read()
+        type_range = self._match_type()
+        type = type_range.value
         type = type.strip()
         result["type"] = type
 
         qualifiers = []
 
-        template_extent = self._match_template()
-        if template_extent:
+        template_range = self._match_template()
+        if template_range:
             qualifiers.append("template")
-            result["template_declaration"] = template_extent.read()
+            result["template_declaration"] = template_range.value
 
         if re.search(r"(^|\s+)virtual(\s+|$)", type):
             qualifiers.append("virtual")
@@ -100,8 +111,7 @@ class FunctionDeclarationParser:
         if re.search(r"(^|\s+)explicit(\s+|$)", type):
             qualifiers.append("explicit")
 
-        qualifiers_extent = self._match_qualifiers()
-        qualifiers_string = qualifiers_extent.read()
+        qualifiers_string = self._match_qualifiers().value
         qualifiers_string = qualifiers_string.strip()
         if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
             qualifiers.append("override")

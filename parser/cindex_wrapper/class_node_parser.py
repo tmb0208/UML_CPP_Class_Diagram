@@ -1,5 +1,5 @@
 #!/usr/bin/python
-from ..utils.extent import Extent
+from source_range_wrapper import SourceRangeWrapper
 import clang.cindex
 import re
 
@@ -11,7 +11,7 @@ class ClassNodeParser:
 
     def parse_method_parameter_node(self, parameters_node):
         return {"name": parameters_node.spelling,
-                "declaration": Extent.from_cindex_extent(parameters_node.extent).read()}
+                "declaration": SourceRangeWrapper(parameters_node.extent).read()}
 
     def parse_method_parameters_nodes(self, method_nodes):
         results = []
@@ -40,7 +40,7 @@ class ClassNodeParser:
             name = self.__match_method_name(name)
         result["name"] = name
 
-        result["declaration"] = Extent.from_cindex_extent(node.extent).read()
+        result["declaration"] = SourceRangeWrapper(node.extent).read()
         result["parameters"] = self.parse_method_parameters_nodes(node.get_children())
 
         qualifiers = []
@@ -65,7 +65,7 @@ class ClassNodeParser:
 
     def parse_field_node(self, node):
         return {"name": node.spelling,
-                "declaration": Extent.from_cindex_extent(node.extent).read(),
+                "declaration": SourceRangeWrapper(node.extent).read(),
                 "access_specifier": node.access_specifier.name}
 
     def parse_field_nodes(self, nodes):
@@ -100,7 +100,7 @@ class ClassNodeParser:
                                  full_class_name[class_name_match.start() + 1:])
 
     def parse_class_declaration(self):
-        declaration_or_definition = Extent.from_cindex_extent(self.node.extent).read()
+        declaration_or_definition = SourceRangeWrapper(self.node.extent).read()
 
         result = self.match_class_declaration(declaration_or_definition)
         if result is None:
