@@ -8,23 +8,21 @@ class ClassParser:
     def __init__(self, source_file_path, class_pattern, clang_args=None):
         self.file_parser = FileNodeParser(source_file_path, clang_args)
         self.class_pattern = class_pattern
+        self.is_parsed = False
 
     def parse(self):
-        classes = self.file_parser.parse_class(self.class_pattern)
-        if classes is None:
+        self.parsed_classes = self.file_parser.parse_class(self.class_pattern)
+        self.is_parsed = True
+        return self.parsed_classes
+
+    def parse_with_all_declarations_if_only(self):
+        if not self.is_parsed:
+            self.parse()
+
+        if self.parsed_classes is None or len(self.parsed_classes) > 1:
             return None
 
-        if len(classes) > 1:
-            classes_full_names = []
-            for c in classes:
-                classes_full_names.append(c["full_name"])
-            raise ValueError(
-                "Error: In file '{}' several classes are matching pattern '{}': {}".format(
-                    self.file_parser.file_path, self.class_pattern, classes_full_names))
-            return None
-
-        result = ClassParser._extend_class_with_declaration_info(classes[0])
-        return result
+        return ClassParser._extend_class_with_declaration_info(self.parsed_classes[0])
 
     @staticmethod
     def _extend_properties_with_declaration_info(properties):

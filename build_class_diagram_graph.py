@@ -94,14 +94,24 @@ def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
     if not os.path.isfile(cpp_file_path):
         raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
 
-    result = ClassParser(cpp_file_path, class_pattern, clang_args).parse()
-    if result is None:
+    parser = ClassParser(cpp_file_path, class_pattern, clang_args)
+    classes = parser.parse()
+    if classes is None:
         raise ValueError(
             "Error: No class matching pattern '{}' in file '{}', clang args: {}".format(
                 class_pattern, cpp_file_path, clang_args))
         return None
 
-    return result
+    elif len(classes) > 1:
+        classes_full_names = []
+        for c in classes:
+            classes_full_names.append(c["full_name"])
+        raise ValueError(
+            "Error: In file '{}' several classes are matching pattern '{}': {}".format(
+                self.file_parser.file_path, self.class_pattern, classes_full_names))
+        return None
+
+    return parser.parse_with_all_declarations_if_only()
 
 
 def replace_html_specific_characters(string):
