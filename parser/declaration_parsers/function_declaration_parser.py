@@ -19,7 +19,7 @@ class FunctionDeclarationParser:
     def __init__(self, declaration):
         self.declaration = declaration
 
-    def _match_template(self):
+    def _search_template(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
 
         template_start = declaration_with_brackets.find_outside_brackets("template")
@@ -42,7 +42,7 @@ class FunctionDeclarationParser:
 
         return StringRange(self.declaration, template_start, parameters_end + 1)
 
-    def _match_name(self):
+    def _search_name(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
         parameters_start = declaration_with_brackets.find_any_of_brackets('(')
         declaration_until_parameters = self.declaration[:parameters_start]
@@ -63,9 +63,9 @@ class FunctionDeclarationParser:
 
         return StringRange(self.declaration, name.start(), name.end())
 
-    def _match_type(self):
-        template_range = self._match_template()
-        name_range = self._match_name()
+    def _search_type(self):
+        template_range = self._search_template()
+        name_range = self._search_name()
         if not name_range:
             raise ValueError("Error: Could not match type in method declaration '{}'".format(
                 self.declaration))
@@ -75,7 +75,7 @@ class FunctionDeclarationParser:
         type_end = name_range.start - 1
         return StringRange(self.declaration, type_start, type_end)
 
-    def _match_qualifiers(self):
+    def _search_qualifiers(self):
         declaration_with_brackets = StringWithBrackets(self.declaration)
 
         parameters_end = declaration_with_brackets.find_any_of_brackets(")")
@@ -90,14 +90,14 @@ class FunctionDeclarationParser:
     def parse(self):
         result = {}
 
-        type_range = self._match_type()
+        type_range = self._search_type()
         type = type_range.value
         type = type.strip()
         result["type"] = type
 
         qualifiers = []
 
-        template_range = self._match_template()
+        template_range = self._search_template()
         if template_range:
             qualifiers.append("template")
             result["template_declaration"] = template_range.value
@@ -111,7 +111,7 @@ class FunctionDeclarationParser:
         if re.search(r"(^|\s+)explicit(\s+|$)", type):
             qualifiers.append("explicit")
 
-        qualifiers_string = self._match_qualifiers().value
+        qualifiers_string = self._search_qualifiers().value
         qualifiers_string = qualifiers_string.strip()
         if re.search(r"(^|\s+)override(\s+|$)", qualifiers_string):
             qualifiers.append("override")
