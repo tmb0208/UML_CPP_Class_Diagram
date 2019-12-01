@@ -6,12 +6,10 @@ import shlex
 from parser.class_parser import ClassParser
 
 
-def get_uml_class_diagram_relationships():
-    return ["association", "dependency", "aggregation", "composition", "inheritance", "realization"]
-
-
 def build_args_parser():
     default_relationship_labeldistance_value = 2
+    uml_class_diagram_relationships = ["association", "dependency",
+                                       "aggregation", "composition", "inheritance", "realization"]
 
     result = argparse.ArgumentParser(
         description='Builds uml class diagram from header file and/or relationship between '
@@ -32,7 +30,7 @@ def build_args_parser():
                         help='Arguments passed to clang before parsing')
 
     result.add_argument('-t', '--relationship-type', type=str,
-                        choices=get_uml_class_diagram_relationships(),
+                        choices=uml_class_diagram_relationships,
                         help='Sets type of relationship. '
                              'If it does not set relationship representation would not be build. '
                              'If it is set RELATIONSHIP_DEPENDEE should be set. '
