@@ -54,22 +54,25 @@ def build_args_parser():
     return result
 
 
+def check_args_logic_error(args):
+    if not args.file_path and not args.relationship_type and not args.argument_list_file:
+        return "Error: Neither FILE_PATH nor RELATIONSHIP_TYPE nor FILE_LIST is set"
+    elif args.relationship_type and not args.relationship_dependee:
+        return "Error: RELATIONSHIP_TYPE is set, but RELATIONSHIP_DEPENDEE is not"
+    elif args.relationship_type and not args.file_path and not args.relationship_depender:
+        return "Error: RELATIONSHIP_TYPE is set, but Neither FILE_PATH nor RELATIONSHIP_DEPENDER is"
+    else:
+        return None
+
+
 def parse_args(args=None):
     parser = build_args_parser()
     args = parser.parse_args(args)
 
-    # Check error
-    err = None
-    if not args.file_path and not args.relationship_type and not args.argument_list_file:
-        err = "Error: Neither FILE_PATH nor RELATIONSHIP_TYPE nor FILE_LIST is set"
-    elif args.relationship_type and not args.relationship_dependee:
-        err = "Error: RELATIONSHIP_TYPE is set, but RELATIONSHIP_DEPENDEE is not"
-    elif args.relationship_type and not args.file_path and not args.relationship_depender:
-        err = "Error: RELATIONSHIP_TYPE is set, but Neither FILE_PATH nor RELATIONSHIP_DEPENDER is"
-
-    if err:
+    logic_error = check_args_logic_error(args)
+    if logic_error:
+        print "Logical error when parsing arguments", logic_error
         parser.print_help()
-        print err
         return None
 
     # Set defaults
