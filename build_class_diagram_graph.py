@@ -65,17 +65,7 @@ def check_args_logic_error(args):
         return None
 
 
-def parse_args(args=None):
-    parser = build_args_parser()
-    args = parser.parse_args(args)
-
-    logic_error = check_args_logic_error(args)
-    if logic_error:
-        print "Logical error when parsing arguments", logic_error
-        parser.print_help()
-        return None
-
-    # Set defaults
+def update_args_with_defaults(args):
     if not args.class_pattern and args.file_path:
         file = os.path.split(args.file_path)[1]
         file_name = os.path.splitext(file)[0]
@@ -89,6 +79,21 @@ def parse_args(args=None):
     clang_arg = "-std=c++11"
     if clang_arg not in args.clang_arguments:
         args.clang_arguments.append("-std=c++11")
+
+    return args
+
+
+def parse_args(args=None):
+    parser = build_args_parser()
+    args = parser.parse_args(args)
+
+    logic_error = check_args_logic_error(args)
+    if logic_error:
+        print "Logical error when parsing arguments", logic_error
+        parser.print_help()
+        return None
+
+    args = update_args_with_defaults(args)
 
     return args
 
