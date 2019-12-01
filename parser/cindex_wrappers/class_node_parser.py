@@ -9,18 +9,18 @@ class ClassNodeParser:
         self.node = node
         self.parent_nodes = parent_nodes
 
-    def parse_method_parameter_node(self, parameters_node):
+    def _parse_method_parameter_node(self, parameters_node):
         declaration = SourceRangeWrapper(parameters_node.extent).read()
         if declaration is None:
             return None
 
         return {"name": parameters_node.spelling, "declaration": declaration}
 
-    def parse_method_parameters_nodes(self, method_nodes):
+    def _parse_method_parameters_nodes(self, method_nodes):
         results = []
         for node in method_nodes:
             if node.kind is clang.cindex.CursorKind.PARM_DECL:
-                result = self.parse_method_parameter_node(node)
+                result = self._parse_method_parameter_node(node)
                 if result is None:
                     return None
 
@@ -29,7 +29,7 @@ class ClassNodeParser:
         return results
 
     # WORKAROUND Template Construct/Destructor
-    def __match_method_name(self, spelling):
+    def _match_method_name(self, spelling):
         match = re.search(r"^~?[a-zA-Z_][a-zA-Z0-9_]*", spelling)
         if not match:
             raise ValueError(
@@ -37,19 +37,19 @@ class ClassNodeParser:
 
         return match.group(0)
 
-    def parse_method_node(self, node):
+    def _parse_method_node(self, node):
         result = {}
 
         result["access_specifier"] = node.access_specifier.name
 
         name = node.spelling
         if "<" in name:
-            name = self.__match_method_name(name)
+            name = self._match_method_name(name)
         result["name"] = name
 
         result["declaration"] = SourceRangeWrapper(node.extent).read()
 
-        parameters = self.parse_method_parameters_nodes(node.get_children())
+        parameters = self._parse_method_parameters_nodes(node.get_children())
         if parameters is None:
             return None
 
@@ -64,14 +64,14 @@ class ClassNodeParser:
 
         return result
 
-    def parse_method_nodes(self, nodes):
+    def _parse_method_nodes(self, nodes):
         results = []
         for node in nodes:
             if node.kind in [clang.cindex.CursorKind.CXX_METHOD,
                              clang.cindex.CursorKind.FUNCTION_TEMPLATE,
                              clang.cindex.CursorKind.DESTRUCTOR,
                              clang.cindex.CursorKind.CONSTRUCTOR]:
-                result = self.parse_method_node(node)
+                result = self._parse_method_node(node)
                 if result is None:
                     print "WARNING: Failed to parse method:", SourceRangeWrapper(node.extent).read()
                     continue
@@ -80,21 +80,21 @@ class ClassNodeParser:
 
         return results
 
-    def parse_field_node(self, node):
+    def _parse_field_node(self, node):
         return {"name": node.spelling,
                 "declaration": SourceRangeWrapper(node.extent).read(),
                 "access_specifier": node.access_specifier.name}
 
-    def parse_field_nodes(self, nodes):
+    def _parse_field_nodes(self, nodes):
         results = []
         for node in nodes:
             if node.kind in [clang.cindex.CursorKind.FIELD_DECL, clang.cindex.CursorKind.VAR_DECL]:
-                results.append(self.parse_field_node(node))
+                results.append(self._parse_field_node(node))
 
         return results
 
     @staticmethod
-    def match_class_declaration(class_declaration):
+    def _match_class_declaration(class_declaration):
         match = re.search(
             r"(class|struct)[^{]*[a-zA-Z_]\w*(::[a-zA-Z_]\w*)?\s*(<[^{]*>)?\s*{",
             class_declaration)
@@ -105,7 +105,7 @@ class ClassNodeParser:
 
     # UNUSED
     @staticmethod
-    def add_namespace_before_class_name(full_class_name, class_name, namespace):
+    def _add_namespace_before_class_name(full_class_name, class_name, namespace):
         class_name_match = re.search(r"\s*{}\s*".format(class_name), full_class_name)
         if not class_name_match:
             raise ValueError("Could not match class name '{}' in full class name '{}'". format(
@@ -116,17 +116,17 @@ class ClassNodeParser:
                                  namespace,
                                  full_class_name[class_name_match.start() + 1:])
 
-    def parse_class_declaration(self):
+    def _parse_class_declaration(self):
         declaration_or_definition = SourceRangeWrapper(self.node.extent).read()
 
-        result = self.match_class_declaration(declaration_or_definition)
+        result = self._match_class_declaration(declaration_or_definition)
         if result is None:
             raise ValueError("Could not match class declaration from '{}'". format(
                 declaration_or_definition))
 
         return result
 
-    def build_class_namespace(self):
+    def _build_class_namespace(self):
         result = str()
         for node in self.parent_nodes:
             name = node.spelling
@@ -135,16 +135,16 @@ class ClassNodeParser:
         return result
 
     def build_class_full_name(self):
-        namespace = self.build_class_namespace()
+        namespace = self._build_class_namespace()
         if namespace:
             return "{}::{}".format(namespace, self.node.spelling)
 
         return self.node.spelling
 
     def parse(self):
-        return {"namespace": self.build_class_namespace(),
+        return {"namespace": self._build_class_namespace(),
                 "name": self.node.spelling,
                 "full_name": self.build_class_full_name(),
-                "declaration": self.parse_class_declaration(),
-                "methods": self.parse_method_nodes(self.node.get_children()),
-                "fields": self.parse_field_nodes(self.node.get_children())}
+                "declaration": self._parse_class_declaration(),
+                "methods": self._parse_method_nodes(self.node.get_children()),
+                "fields": self._parse_field_nodes(self.node.get_children())}
