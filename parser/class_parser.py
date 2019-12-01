@@ -19,7 +19,7 @@ class ClassParser:
         if not self.is_parsed:
             self.parse()
 
-        if self.parsed_classes is None or len(self.parsed_classes) > 1:
+        if not self.parsed_classes or len(self.parsed_classes) > 1:
             return None
 
         return ClassParser._extend_class_with_declaration_info(self.parsed_classes[0])

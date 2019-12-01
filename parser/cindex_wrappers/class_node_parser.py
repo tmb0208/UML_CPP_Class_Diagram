@@ -10,14 +10,21 @@ class ClassNodeParser:
         self.parent_nodes = parent_nodes
 
     def parse_method_parameter_node(self, parameters_node):
-        return {"name": parameters_node.spelling,
-                "declaration": SourceRangeWrapper(parameters_node.extent).read()}
+        declaration = SourceRangeWrapper(parameters_node.extent).read()
+        if declaration is None:
+            return None
+
+        return {"name": parameters_node.spelling, "declaration": declaration}
 
     def parse_method_parameters_nodes(self, method_nodes):
         results = []
         for node in method_nodes:
             if node.kind is clang.cindex.CursorKind.PARM_DECL:
-                results.append(self.parse_method_parameter_node(node))
+                result = self.parse_method_parameter_node(node)
+                if result is None:
+                    return None
+
+                results.append(result)
 
         return results
 
@@ -41,7 +48,12 @@ class ClassNodeParser:
         result["name"] = name
 
         result["declaration"] = SourceRangeWrapper(node.extent).read()
-        result["parameters"] = self.parse_method_parameters_nodes(node.get_children())
+
+        parameters = self.parse_method_parameters_nodes(node.get_children())
+        if parameters is None:
+            return None
+
+        result["parameters"] = parameters
 
         qualifiers = []
         if node.kind is clang.cindex.CursorKind.CONSTRUCTOR:
@@ -59,7 +71,12 @@ class ClassNodeParser:
                              clang.cindex.CursorKind.FUNCTION_TEMPLATE,
                              clang.cindex.CursorKind.DESTRUCTOR,
                              clang.cindex.CursorKind.CONSTRUCTOR]:
-                results.append(self.parse_method_node(node))
+                result = self.parse_method_node(node)
+                if result is None:
+                    print "WARNING: Failed to parse method:", SourceRangeWrapper(node.extent).read()
+                    continue
+
+                results.append(result)
 
         return results
 
@@ -71,7 +88,7 @@ class ClassNodeParser:
     def parse_field_nodes(self, nodes):
         results = []
         for node in nodes:
-            if node.kind is clang.cindex.CursorKind.FIELD_DECL:
+            if node.kind in [clang.cindex.CursorKind.FIELD_DECL, clang.cindex.CursorKind.VAR_DECL]:
                 results.append(self.parse_field_node(node))
 
         return results
@@ -79,7 +96,7 @@ class ClassNodeParser:
     @staticmethod
     def match_class_declaration(class_declaration):
         match = re.search(
-            r"(class|struct)[^{]*[a-z_][a-z_0-9]*(::[a-z_][a-z_0-9]*)?\s*(<[^{]*>)?\s*{",
+            r"(class|struct)[^{]*[a-zA-Z_]\w*(::[a-zA-Z_]\w*)?\s*(<[^{]*>)?\s*{",
             class_declaration)
         if not match:
             return None

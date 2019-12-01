@@ -36,7 +36,7 @@ class FileNodeParser:
 
         return results
 
-    def _parse_matching_class_node(self, class_node, parent_nodes, pattern):
+    def _parse_matching_class_node(self, class_node, parent_nodes, class_name):
         # FIXME: Class definition, previosly declared in header in other class is not parsed
         parser = ClassNodeParser(class_node, parent_nodes)
         full_name = parser.build_class_full_name()
@@ -44,7 +44,7 @@ class FileNodeParser:
             raise ValueError("Couldn't build full name. Class name: {}".format(class_node.spelling))
             return None
 
-        if re.search(pattern, full_name):
+        if re.search(r"(.*::)?{}$".format(class_name), full_name):
             return parser.parse()
 
         return None

@@ -96,7 +96,7 @@ def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
 
     parser = ClassParser(cpp_file_path, class_pattern, clang_args)
     classes = parser.parse()
-    if classes is None:
+    if not classes:
         raise ValueError(
             "Error: No class matching pattern '{}' in file '{}', clang args: {}".format(
                 class_pattern, cpp_file_path, clang_args))
@@ -108,7 +108,7 @@ def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
             classes_full_names.append(c["full_name"])
         raise ValueError(
             "Error: In file '{}' several classes are matching pattern '{}': {}".format(
-                self.file_parser.file_path, self.class_pattern, classes_full_names))
+                cpp_file_path, class_pattern, classes_full_names))
         return None
 
     return parser.parse_with_all_declarations_if_only()
