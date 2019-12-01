@@ -10,10 +10,10 @@ def get_uml_class_diagram_relationships():
     return ["association", "dependency", "aggregation", "composition", "inheritance", "realization"]
 
 
-def parse_args(args=None):
+def build_args_parser():
     default_relationship_labeldistance_value = 2
 
-    parser = argparse.ArgumentParser(
+    result = argparse.ArgumentParser(
         description='Builds uml class diagram from header file and/or relationship between '
                     'classes which are represented in graphviz dot language. '
                     'Elther FILE_PATH or RELATIONSHIP_TYPE or ARGUMENT_LIST_FILE is required. '
@@ -21,38 +21,41 @@ def parse_args(args=None):
                     'Note[0]: Classes are matched by fullname, which consist of class declaration '
                     'and namespace before class name')
 
-    parser.add_argument('-f', '--file-path', type=str,
+    result.add_argument('-f', '--file-path', type=str,
                         help='Path to file which contains class definition.')
-    parser.add_argument('-c', '--class-pattern', type=str,
+    result.add_argument('-c', '--class-pattern', type=str,
                         help='Pattern of class to extract. See Note[0]. '
                              'By default basename of FILE_PATH would be set')
-    parser.add_argument('-alf', '--argument-list-file', type=str,
+    result.add_argument('-alf', '--argument-list-file', type=str,
                         help='Path to file where every line is argument to this executable.')
-    parser.add_argument('-a', '--clang-arguments', type=str,
+    result.add_argument('-a', '--clang-arguments', type=str,
                         help='Arguments passed to clang before parsing')
 
-    parser.add_argument('-t', '--relationship-type', type=str,
+    result.add_argument('-t', '--relationship-type', type=str,
                         choices=get_uml_class_diagram_relationships(),
                         help='Sets type of relationship. '
                              'If it does not set relationship representation would not be build. '
                              'If it is set RELATIONSHIP_DEPENDEE should be set. '
                              'If FILE_PATH is not set then RELATIONSHIP_DEPENDER should be set.')
-    parser.add_argument('-dr', '--relationship-depender', type=str,
+    result.add_argument('-dr', '--relationship-depender', type=str,
                         help='Sets relationship depender class pattern. See Note[0]. '
                              'By default CLASS_NAME would be set')
-    parser.add_argument('-de', '--relationship-dependee', type=str,
+    result.add_argument('-de', '--relationship-dependee', type=str,
                         help='Sets relationship dependee class pattern. See Note[0]. ')
-    parser.add_argument('-tl', '--relationship-taillabel', type=str,
+    result.add_argument('-tl', '--relationship-taillabel', type=str,
                         help='Sets relationship tail label')
-    parser.add_argument('-l', '--relationship-label', type=str,
+    result.add_argument('-l', '--relationship-label', type=str,
                         help='Sets relationship label')
-    parser.add_argument('-hl', '--relationship-headlabel', type=str,
+    result.add_argument('-hl', '--relationship-headlabel', type=str,
                         help='Sets relationship head label')
-    parser.add_argument('-ld', '--relationship-labeldistance', type=int,
-                        help='Sets relationship label distance .'
-                             'By default = "{}")'.format(
-                                 default_relationship_labeldistance_value))
+    result.add_argument('-ld', '--relationship-labeldistance', type=int,
+                        help='Sets relationship label distance.',
+                        default=default_relationship_labeldistance_value)
+    return result
 
+
+def parse_args(args=None):
+    parser = build_args_parser()
     args = parser.parse_args(args)
 
     # Check error
@@ -74,9 +77,6 @@ def parse_args(args=None):
         file = os.path.split(args.file_path)[1]
         file_name = os.path.splitext(file)[0]
         args.class_pattern = r"(:|\s|^){}(<|\s|$)".format(file_name)
-
-    if not args.relationship_labeldistance:
-        args.relationship_labeldistance = default_relationship_labeldistance_value
 
     if not args.clang_arguments:
         args.clang_arguments = []
