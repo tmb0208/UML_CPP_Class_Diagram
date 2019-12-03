@@ -80,11 +80,13 @@ class FileNodeParser:
         return result
 
     def _parse_file(self):
+        if self.file_nodes is not None:
+            return True
+
         self._append_clang_source_args()
 
-        index = clang.cindex.Index.create()
-
         try:
+            index = clang.cindex.Index.create()
             parsed_file = index.parse(self.file_path, args=self.clang_args, options=self.options)
 
             self.file_nodes = self._filter_nodes_by_file_name(parsed_file.cursor.get_children(),
@@ -95,9 +97,8 @@ class FileNodeParser:
                 self.file_path, self.clang_args, error))
             return False
 
-    def parse_class(self, class_pattern):
-        if self.file_nodes is None:
-            if not self._parse_file():
-                return None
+    def findall_classes(self, class_name):
+        if not self._parse_file():
+            return None
 
-        return self._parse_matching_class_nodes(class_pattern)
+        return self._parse_matching_class_nodes(class_name)

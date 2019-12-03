@@ -5,13 +5,13 @@ from declaration_parsers.property_declaration_parser import PropertyDeclarationP
 
 
 class ClassParser:
-    def __init__(self, source_file_path, class_pattern, clang_args=None):
+    def __init__(self, source_file_path, class_name, clang_args=None):
         self.file_parser = FileNodeParser(source_file_path, clang_args)
-        self.class_pattern = class_pattern
+        self.class_name = class_name
         self.is_parsed = False
 
     def parse(self):
-        self.parsed_classes = self.file_parser.parse_class(self.class_pattern)
+        self.parsed_classes = self.file_parser.findall_classes(self.class_name)
         self.is_parsed = True
         return self.parsed_classes
 
