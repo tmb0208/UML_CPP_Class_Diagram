@@ -1,12 +1,12 @@
 #!/usr/bin/python
-from cindex_wrappers.file_node_parser import FileNodeParser
+from cindex_wrappers.file_declarations_parser import FileDeclarationsParser
 from declaration_parsers.function_declaration_parser import FunctionDeclarationParser
 from declaration_parsers.property_declaration_parser import PropertyDeclarationParser
 
 
 class ClassParser:
     def __init__(self, source_file_path, class_name, clang_args=None):
-        self.file_parser = FileNodeParser(source_file_path, clang_args)
+        self.file_parser = FileDeclarationsParser(source_file_path, clang_args)
         self.class_name = class_name
         self.is_parsed = False
 

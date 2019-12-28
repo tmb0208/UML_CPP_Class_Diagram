@@ -5,7 +5,7 @@ import re
 import os
 
 
-class FileNodeParser:
+class FileDeclarationsParser:
     def __init__(self, file_path, clang_args=None):
         self.file_path = file_path
         self.clang_args = clang_args
