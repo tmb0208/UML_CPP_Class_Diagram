@@ -19,7 +19,7 @@ class FileNodeParser:
                              clang.cindex.CursorKind.CLASS_TEMPLATE_PARTIAL_SPECIALIZATION,
                              clang.cindex.CursorKind.STRUCT_DECL]
 
-    def _findall_class_nodes(self, nodes, parent_nodes=None):
+    def _filter_class_nodes(self, nodes, parent_nodes=None):
         results = []
 
         if parent_nodes is None:
@@ -30,7 +30,7 @@ class FileNodeParser:
                 if self._is_class(node.kind):
                     results.append({"parent_nodes": parent_nodes, "class_node": node})
 
-                class_nodes = self._findall_class_nodes(node.get_children(), parent_nodes + [node])
+                class_nodes = self._filter_class_nodes(node.get_children(), parent_nodes + [node])
                 if class_nodes:
                     results = results + class_nodes
 
@@ -52,7 +52,7 @@ class FileNodeParser:
     def _parse_matching_class_nodes(self, pattern):
         results = []
 
-        class_nodes = self._findall_class_nodes(self.file_nodes)
+        class_nodes = self._filter_class_nodes(self.file_nodes)
         for node in class_nodes:
             result = self._parse_matching_class_node(
                 node["class_node"], node["parent_nodes"], pattern)
