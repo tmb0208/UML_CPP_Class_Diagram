@@ -10,13 +10,6 @@ def replace_html_specific_characters(string):
     return string.replace("&", "&#38;").replace("<", "&#60;").replace(">", "&#62;")
 
 
-def replace_multiple(string, old_arr, new):
-    for old in old_arr:
-        string = string.replace(old, new)
-
-    return string
-
-
 def build_uml_properties_representation(properties, access_modificator_representations):
     results = []
 
