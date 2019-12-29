@@ -97,3 +97,28 @@ class ArgumentsParser:
         args = ArgumentsParser._update_args_with_defaults(args)
 
         return args
+
+    @staticmethod
+    def parse_arguments_file(file_path):
+        if not file_path:
+            return None
+
+        result = []
+        if not os.path.isfile(file_path):
+            raise ValueError("Error: No such file: '{}'".format(file_path))
+
+        with open(file_path) as f:
+            lines = f.readlines()
+
+        for n, line in enumerate(lines):
+            line_args = shlex.split(line)
+            line_args = ArgumentsParser.parse(line_args)
+            if not line_args:
+                raise ValueError(
+                    "Error: Could not parse arguments from file '{}' line {}:'{}'".format(
+                        file_path, n, line))
+                return None
+
+            result.append(line_args)
+
+        return result
