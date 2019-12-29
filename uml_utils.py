@@ -2,7 +2,7 @@
 from html_utils import format_uml_class_features_to_html
 
 
-def build_uml_properties_representation(properties, access_modificator_representations):
+def _build_uml_properties_representation(properties, access_modificator_representations):
     results = []
 
     for property in properties:
@@ -15,7 +15,7 @@ def build_uml_properties_representation(properties, access_modificator_represent
     return results
 
 
-def build_uml_method_parameters_representation(method):
+def _build_uml_method_parameters_representation(method):
     results = []
 
     representation = "{} : {}"
@@ -27,14 +27,14 @@ def build_uml_method_parameters_representation(method):
     return ', '.join(results)
 
 
-def build_uml_method_return_type_representation(method):
+def _build_uml_method_return_type_representation(method):
     if "constructor" in method["qualifiers"] or "destructor" in method["qualifiers"]:
         return ""
 
     return method["type"]
 
 
-def build_uml_method_specificators_representation(method):
+def _build_uml_method_specificators_representation(method):
     if "pure" in method["qualifiers"] or "virtual" in method["qualifiers"]:
         return "= 0"
     elif "virtual" in method["qualifiers"]:
@@ -45,7 +45,7 @@ def build_uml_method_specificators_representation(method):
         return ""
 
 
-def build_uml_methods_representation(methods, access_modificator_representations):
+def _build_uml_methods_representation(methods, access_modificator_representations):
     results = []
 
     representation = "{} {}( {} ) : {} {}"
@@ -55,9 +55,9 @@ def build_uml_methods_representation(methods, access_modificator_representations
         specifier_representation = access_modificator_representations[specifier]
         result = representation.format(specifier_representation,
                                        method["name"],
-                                       build_uml_method_parameters_representation(method),
-                                       build_uml_method_return_type_representation(method),
-                                       build_uml_method_specificators_representation(method))
+                                       _build_uml_method_parameters_representation(method),
+                                       _build_uml_method_return_type_representation(method),
+                                       _build_uml_method_specificators_representation(method))
 
         result = result.rstrip(": ")
         results.append(result)
@@ -65,18 +65,18 @@ def build_uml_methods_representation(methods, access_modificator_representations
     return results
 
 
-def build_properties_and_methods_uml_representation(properties, methods):
+def _build_properties_and_methods_uml_representation(properties, methods):
     access_modificator_representations = {"PRIVATE": "-", "PROTECTED": "#", "PUBLIC": "+"}
 
-    properties_representation = build_uml_properties_representation(
+    properties_representation = _build_uml_properties_representation(
         properties, access_modificator_representations)
-    methods_representation = build_uml_methods_representation(
+    methods_representation = _build_uml_methods_representation(
         methods, access_modificator_representations)
 
     return properties_representation, methods_representation
 
 
 def build_uml_class_content(full_class_name, properties, methods):
-    uml_properties, uml_methods = build_properties_and_methods_uml_representation(
+    uml_properties, uml_methods = _build_properties_and_methods_uml_representation(
         properties, methods)
     return format_uml_class_features_to_html(full_class_name, uml_properties, uml_methods)
