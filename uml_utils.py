@@ -1,10 +1,9 @@
 #!/usr/bin/python
-from html_utils import format_uml_class_features_to_html
 
 _uml_specifier_representations = {"PRIVATE": "-", "PROTECTED": "#", "PUBLIC": "+"}
 
 
-def _build_uml_properties_representation(properties):
+def build_uml_properties_representation(properties):
     results = []
     for property in properties:
         specifier = property["access_specifier"]
@@ -45,7 +44,7 @@ def _build_uml_method_specificators_representation(method):
         return ""
 
 
-def _build_uml_methods_representation(methods):
+def build_uml_methods_representation(methods):
     results = []
 
     representation = "{} {}( {} ) : {} {}"
@@ -63,9 +62,3 @@ def _build_uml_methods_representation(methods):
         results.append(result)
 
     return results
-
-
-def build_uml_class_content(full_class_name, properties, methods):
-    properties_uml = _build_uml_properties_representation(properties)
-    methods_uml = _build_uml_methods_representation(methods)
-    return format_uml_class_features_to_html(full_class_name, properties_uml, methods_uml)

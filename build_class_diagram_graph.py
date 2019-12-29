@@ -1,7 +1,8 @@
 #!/usr/bin/python
 from parser.class_parser import ClassParser
 from arguments_parser import ArgumentsParser
-from uml_utils import build_uml_class_content
+from html_utils import format_uml_class_features_to_html
+from uml_utils import build_uml_properties_representation, build_uml_methods_representation
 from dot_utils import build_graph
 
 
@@ -17,6 +18,18 @@ def parse_classes(args_list):
     return result
 
 
+def build_node_dictionaries(classes):
+    results = []
+    for _class in classes:
+        full_name = _class["full_name"]
+        properties_uml = build_uml_properties_representation(_class["fields"])
+        methods_uml = build_uml_methods_representation(_class["methods"])
+        label = format_uml_class_features_to_html(full_name, properties_uml, methods_uml)
+        results.append({"name": full_name, "label": label})
+
+    return results
+
+
 def main():
     args = ArgumentsParser.parse()
     if not args:
@@ -29,12 +42,7 @@ def main():
 
     try:
         classes = parse_classes(args_list)
-
-        node_dictionaries = []
-        for c in classes:
-            label = build_uml_class_content(c["full_name"], c["fields"], c["methods"])
-            node_dictionaries.append({"name": c["full_name"], "label": label})
-
+        node_dictionaries = build_node_dictionaries(classes)
         graph = build_graph(args_list, node_dictionaries)
         print graph
         return 0
