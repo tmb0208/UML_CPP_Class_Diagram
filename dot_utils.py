@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import re
 
 
 # NODES
@@ -17,7 +18,7 @@ def build_dot_nodes(node_dictionaries):
 
 # RELATIONSHIPS
 
-def build_edge_attributes(rtype, taillabel=None, label=None, headlabel=None, labeldistance=None):
+def _build_edge_attributes(rtype, taillabel=None, label=None, headlabel=None, labeldistance=None):
     relationships = {
         "association":
             '[style="solid", taillabel="{}", label="{}", headlabel="{}", '
@@ -48,25 +49,21 @@ def build_edge_attributes(rtype, taillabel=None, label=None, headlabel=None, lab
     return relationships[rtype].format(taillabel, label, headlabel, labeldistance)
 
 
-def build_relationship(depender, dependee, rtype,
-                       taillabel=None, label=None, headlabel=None, labeldistance=None):
-    edge_attributes = build_edge_attributes(rtype, taillabel, label, headlabel, labeldistance)
+def _build_relationship(depender, dependee, rtype,
+                        taillabel=None, label=None, headlabel=None, labeldistance=None):
+    edge_attributes = _build_edge_attributes(rtype, taillabel, label, headlabel, labeldistance)
 
     return "\"{}\" -> \"{}\" {}".format(depender, dependee, edge_attributes)
 
 
-def match_class_full_name(classes, pattern):
-    results = []
-    full_names = []
-    for c in classes:
-        full_names.append(c["full_name"])
-        if re.search(pattern, c["full_name"]):
-            results.append(c["full_name"])
+def _match_the_only_name(node_names, pattern):
+    results = [name for name in node_names if re.search(pattern, name)]
 
     if not results:
-        raise ValueError(
-            "Error: No class full name matching pattern '{}': {}".format(pattern, full_names))
+        raise ValueError("Error: No class full name matching pattern '{}': {}".format(
+            pattern, node_names))
         return None
+
     elif len(results) > 1:
         raise ValueError("Error: Several classes full name are matching pattern '{}': {}".format(
             pattern, results))
@@ -75,7 +72,7 @@ def match_class_full_name(classes, pattern):
     return results[0]
 
 
-def build_relationships(args_list, classes):
+def build_relationships(args_list, node_names):
     results = []
 
     for args in args_list:
@@ -84,20 +81,20 @@ def build_relationships(args_list, classes):
                 args.relationship_depender = args.class_pattern
 
             try:
-                depender_full_name = match_class_full_name(classes, args.relationship_depender)
-                dependee_full_name = match_class_full_name(classes, args.relationship_dependee)
+                depender_full_name = _match_the_only_name(node_names, args.relationship_depender)
+                dependee_full_name = _match_the_only_name(node_names, args.relationship_dependee)
             except ValueError as error:
                 print(error)
                 raise ValueError("Could not build relationships with args '{}'.".format(args))
                 return None
 
-            relationship = build_relationship(depender_full_name,
-                                              dependee_full_name,
-                                              args.relationship_type,
-                                              args.relationship_taillabel,
-                                              args.relationship_label,
-                                              args.relationship_headlabel,
-                                              args.relationship_labeldistance)
+            relationship = _build_relationship(depender_full_name,
+                                               dependee_full_name,
+                                               args.relationship_type,
+                                               args.relationship_taillabel,
+                                               args.relationship_label,
+                                               args.relationship_headlabel,
+                                               args.relationship_labeldistance)
             results.append(relationship)
 
     return results
@@ -105,7 +102,7 @@ def build_relationships(args_list, classes):
 # GRAPH
 
 
-def build_graph(args_list, classes, node_dictionaries):
+def build_graph(args_list, node_dictionaries):
     template = ('digraph "Class Diagram"\n'
                 '{{\n'
                 '\tbgcolor = transparent;\n'
@@ -121,5 +118,6 @@ def build_graph(args_list, classes, node_dictionaries):
                 '}}')
 
     nodes = build_dot_nodes(node_dictionaries)
-    relationships = build_relationships(args_list, classes)
+    node_names = [dictionary["name"] for dictionary in node_dictionaries]
+    relationships = build_relationships(args_list, node_names)
     return template.format("\n".join(nodes), "\n".join(relationships))

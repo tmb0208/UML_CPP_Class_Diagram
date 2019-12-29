@@ -1,7 +1,4 @@
 #!/usr/bin/python
-import re
-import os
-import shlex
 from parser.class_parser import ClassParser
 from arguments_parser import ArgumentsParser
 from uml_utils import build_uml_class_content
@@ -38,7 +35,7 @@ def main():
             label = build_uml_class_content(c["full_name"], c["fields"], c["methods"])
             node_dictionaries.append({"name": c["full_name"], "label": label})
 
-        graph = build_graph(args_list, classes, node_dictionaries)
+        graph = build_graph(args_list, node_dictionaries)
         print graph
         return 0
     except ValueError as error:
