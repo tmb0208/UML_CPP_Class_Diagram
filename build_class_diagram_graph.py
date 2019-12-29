@@ -4,7 +4,7 @@ import os
 import shlex
 from parser.class_parser import ClassParser
 from arguments_parser import ArgumentsParser
-from html_utils import format_uml_class_to_html
+from html_utils import format_uml_class_features_to_html
 
 
 def build_uml_properties_representation(properties, access_modificator_representations):
@@ -90,7 +90,7 @@ def build_properties_and_methods_uml_representation(properties, methods):
 def build_uml_class_diagram_node(full_class_name, properties, methods):
     uml_properties, uml_methods = build_properties_and_methods_uml_representation(
         properties, methods)
-    class_content = format_uml_class_to_html(full_class_name, uml_properties, uml_methods)
+    class_content = format_uml_class_features_to_html(full_class_name, uml_properties, uml_methods)
 
     return build_dot_node(full_class_name, class_content)
 

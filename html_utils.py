@@ -2,58 +2,55 @@
 import re
 
 
-def replace_html_specific_characters(string):
+def _replace_html_specific_characters(string):
     return string.replace("&", "&#38;").replace("<", "&#60;").replace(">", "&#62;")
 
 
-def underline_if_static(uml_representation):
-    if re.search(r":.* static .*", uml_representation):
-        return "<u>{}</u>".format(uml_representation)
+def _underline_if_static(declaration):
+    if re.search(r":.* static .*", declaration):
+        return "<u>{}</u>".format(declaration)
 
-    return uml_representation
-
-
-def italic_if_pure_virtual(uml_representation):
-    if re.search(r":.*= 0.*", uml_representation):
-        return "<i>{}</i>".format(uml_representation)
-
-    return uml_representation
+    return declaration
 
 
-def format_if_too_long(uml_method_representation, max_chars, spacing=8):
-    sep = "<br />" + (" " * spacing)
+def _italic_if_pure_virtual(declaration):
+    if re.search(r":.*= 0.*", declaration):
+        return "<i>{}</i>".format(declaration)
 
-    if len(uml_method_representation) > max_chars:
-        return uml_method_representation.replace("( ", "(" + sep).replace(", ", "," + sep)
-
-    return uml_method_representation
+    return declaration
 
 
-def format_uml_properties_to_html(properties):
+def _format_if_too_long(declaration, max_chars, spacing=8):
+    if len(declaration) > max_chars:
+        html_sep = "<br />" + (" " * spacing)
+        return declaration.replace("( ", "(" + html_sep).replace(", ", "," + html_sep)
+
+    return declaration
+
+
+def _format_uml_properties_to_html(properties):
     results = []
-
     for p in properties:
-        result = replace_html_specific_characters(p)
-        result = underline_if_static(result)
+        result = _replace_html_specific_characters(p)
+        result = _underline_if_static(result)
         results.append(result)
 
     return results
 
 
-def format_uml_methods_to_html(methods):
+def _format_uml_methods_to_html(methods):
     results = []
-
     for m in methods:
-        result = replace_html_specific_characters(m)
-        result = underline_if_static(result)
-        result = italic_if_pure_virtual(result)
-        result = format_if_too_long(result, 100)
+        result = _replace_html_specific_characters(m)
+        result = _underline_if_static(result)
+        result = _italic_if_pure_virtual(result)
+        result = _format_if_too_long(result, 100)
         results.append(result)
 
     return results
 
 
-def format_uml_class_to_html(full_name, uml_properties, uml_methods):
+def format_uml_class_features_to_html(full_name, properties, methods):
     template = ('<<table border="0" cellspacing="0" cellborder="1">\n'
                 '\t<tr>\n'
                 '\t\t<td>{}</td>\n'
@@ -66,8 +63,8 @@ def format_uml_class_to_html(full_name, uml_properties, uml_methods):
                 '\t</tr>\n'
                 '</table>>\n')
 
-    full_name = replace_html_specific_characters(full_name)
-    properties = format_uml_properties_to_html(uml_properties)
-    methods = format_uml_methods_to_html(uml_methods)
+    full_name = _replace_html_specific_characters(full_name)
+    properties = _format_uml_properties_to_html(properties)
+    methods = _format_uml_methods_to_html(methods)
 
     return template.format(full_name, '<br />'.join(properties), '<br />'.join(methods))
