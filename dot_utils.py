@@ -60,13 +60,12 @@ def _match_the_only_name(node_names, pattern):
     results = [name for name in node_names if re.search(pattern, name)]
 
     if not results:
-        raise ValueError("Error: No class full name matching pattern '{}': {}".format(
-            pattern, node_names))
+        print "Error: No class full name matching pattern '{}': {}".format(pattern, node_names)
         return None
 
     elif len(results) > 1:
-        raise ValueError("Error: Several classes full name are matching pattern '{}': {}".format(
-            pattern, results))
+        print "Error: Several classes full name are matching pattern '{}': {}".format(pattern,
+                                                                                      results)
         return None
 
     return results[0]
@@ -80,12 +79,10 @@ def build_relationships(args_list, node_names):
             if not args.relationship_depender:
                 args.relationship_depender = args.class_pattern
 
-            try:
-                depender_full_name = _match_the_only_name(node_names, args.relationship_depender)
-                dependee_full_name = _match_the_only_name(node_names, args.relationship_dependee)
-            except ValueError as error:
-                print(error)
-                raise ValueError("Could not build relationships with args '{}'.".format(args))
+            depender_full_name = _match_the_only_name(node_names, args.relationship_depender)
+            dependee_full_name = _match_the_only_name(node_names, args.relationship_dependee)
+            if depender_full_name is None or dependee_full_name is None:
+                print "Could not build relationships with args '{}'.".format(args)
                 return None
 
             relationship = _build_relationship(depender_full_name,

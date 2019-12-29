@@ -12,8 +12,8 @@ class SourceRangeWrapper:
             return
 
         if start.file.name != end.file.name:
-            raise ValueError("Start and end locations file path aren't equal: '{}', '{}'".format(
-                start.file.name, end.file.name))
+            print "Start and end locations file path aren't equal: '{}', '{}'".format(
+                start.file.name, end.file.name)
             return
 
         self.source = SourceRangeWrapper._read_extent(start.file.name)
@@ -41,7 +41,7 @@ class SourceRangeWrapper:
     @staticmethod
     def _read_extent(file_path):
         if not os.path.isfile(file_path):
-            raise ValueError("Error: No such file: '{}'".format(file_path))
+            print "Error: No such file: '{}'".format(file_path)
 
         with open(file_path) as file:
             return file.readlines()

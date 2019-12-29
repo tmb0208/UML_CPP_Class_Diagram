@@ -32,8 +32,8 @@ class ClassNodeParser:
     def _match_method_name(self, spelling):
         match = re.search(r"^~?[a-zA-Z_][a-zA-Z0-9_]*", spelling)
         if not match:
-            raise ValueError(
-                "Error: Could not match method name in spelling '{}'". format(spelling))
+            print "Error: Could not match method name in spelling '{}'".format(spelling)
+            return None
 
         return match.group(0)
 
@@ -108,8 +108,8 @@ class ClassNodeParser:
     def _add_namespace_before_class_name(full_class_name, class_name, namespace):
         class_name_match = re.search(r"\s*{}\s*".format(class_name), full_class_name)
         if not class_name_match:
-            raise ValueError("Could not match class name '{}' in full class name '{}'". format(
-                class_name, full_class_name))
+            print "Could not match class name '{}' in full class name '{}'".format(class_name,
+                                                                                   full_class_name)
             return None
 
         return "{}{}::{}".format(full_class_name[:class_name_match.start() + 1],
@@ -121,8 +121,7 @@ class ClassNodeParser:
 
         result = self._match_class_declaration(declaration_or_definition)
         if result is None:
-            raise ValueError("Could not match class declaration from '{}'". format(
-                declaration_or_definition))
+            print "Could not match class declaration from '{}'".format(declaration_or_definition)
 
         return result
 

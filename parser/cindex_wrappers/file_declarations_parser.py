@@ -58,7 +58,6 @@ class FileDeclarationsParser:
             file_nodes = parsed_file.cursor.get_children()
             self.cached_file_nodes = filter(
                 lambda node: node.location.file.name == parsed_file.spelling, file_nodes)
-
         except clang.cindex.TranslationUnitLoadError as error:
             print("Failed to parse file '{}' with clang args '{}': {}".format(
                 self.file_path, self.clang_args, error))
@@ -83,7 +82,7 @@ class FileDeclarationsParser:
             actual_full_name = parser.build_class_full_name()
             if actual_full_name is None:
                 spelling = parser.node.spelling
-                raise ValueError("Couldn't build full name. Class name: {}".format(spelling))
+                print "Couldn't build full name. Class name: {}".format(spelling)
             elif actual_full_name == full_name:
                 result = parser.parse()
                 results.append(result)
@@ -100,7 +99,7 @@ class FileDeclarationsParser:
             result = parser.build_class_full_name()
             if result is None:
                 spelling = parser.node.spelling
-                raise ValueError("Couldn't build full name. Class name: {}".format(spelling))
+                print "Couldn't build full name. Class name: {}".format(spelling)
                 return
 
             results.append(result)

@@ -106,7 +106,8 @@ class ArgumentsParser:
 
         result = []
         if not os.path.isfile(file_path):
-            raise ValueError("Error: No such file: '{}'".format(file_path))
+            print "Error: No such file: '{}'".format(file_path)
+            return None
 
         with open(file_path) as f:
             lines = f.readlines()
@@ -115,9 +116,8 @@ class ArgumentsParser:
             line_args = shlex.split(line)
             line_args = ArgumentsParser.parse(line_args)
             if not line_args:
-                raise ValueError(
-                    "Error: Could not parse arguments from file '{}' line {}:'{}'".format(
-                        file_path, n, line))
+                print "Error: Could not parse arguments from file '{}' line {}:'{}'".format(
+                    file_path, n, line)
                 return None
 
             result.append(line_args)

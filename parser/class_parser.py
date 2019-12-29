@@ -14,24 +14,21 @@ class ClassParser:
     def _search_class_full_name(self):
         classes_full_names = self.file_parser.parse_classes_full_names()
         if not classes_full_names:
-            raise ValueError(
-                "Error: No classes in file '{}', clang args: {}".format(file_path, clang_args))
+            print "Error: No classes in file '{}', clang args: {}".format(file_path, clang_args)
             return None
 
         class_pattern = r"(.*::)?{}$".format(self.class_name)
         matched_classes_full_names = filter(lambda full_name: re.search(class_pattern, full_name),
                                             classes_full_names)
         if not matched_classes_full_names:
-            raise ValueError(
-                "Error: No class matching pattern '{}' in file '{}', clang args '{}', "
-                "suggested classes: {}".format(class_pattern, file_path, clang_args,
-                                               classes_full_names))
+            print("Error: No class matching pattern '{}' in file '{}', clang args '{}', "
+                  "suggested classes: {}").format(class_pattern, file_path, clang_args,
+                                                  classes_full_names)
             return None
 
         elif len(matched_classes_full_names) > 1:
-            raise ValueError(
-                "Error: In file '{}' several classes are matching pattern '{}': {}".format(
-                    file_path, class_pattern, matched_classes_full_names))
+            print "Error: In file '{}' several classes are matching pattern '{}': {}".format(
+                file_path, class_pattern, matched_classes_full_names)
             return None
 
         return matched_classes_full_names[0]
