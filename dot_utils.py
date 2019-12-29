@@ -1,22 +1,18 @@
 #!/usr/bin/python
-from uml_utils import build_uml_class_content
 
 
-# NODE
+# NODES
 
-def build_dot_node(full_class_name, label):
+# node_dictionaries should contain 'name' and 'label' keys
+def build_dot_nodes(node_dictionaries):
     template = "\"{}\" [\n\tlabel = \n{}];"
-    return template.format(full_class_name, label)
 
+    results = []
+    for dictionary in node_dictionaries:
+        result = template.format(dictionary["name"], dictionary["label"])
+        results.append(result)
 
-def build_classes_nodes(classes):
-    result = []
-    for c in classes:
-        class_content = build_uml_class_content(c["full_name"], c["fields"], c["methods"])
-        node = build_dot_node(c["full_name"], class_content)
-        result.append(node)
-
-    return result
+    return results
 
 
 # RELATIONSHIPS
@@ -109,7 +105,7 @@ def build_relationships(args_list, classes):
 # GRAPH
 
 
-def build_graph(args_list, classes):
+def build_graph(args_list, classes, node_dictionaries):
     template = ('digraph "Class Diagram"\n'
                 '{{\n'
                 '\tbgcolor = transparent;\n'
@@ -124,6 +120,6 @@ def build_graph(args_list, classes):
                 '{}\n'
                 '}}')
 
-    nodes = build_classes_nodes(classes)
+    nodes = build_dot_nodes(node_dictionaries)
     relationships = build_relationships(args_list, classes)
     return template.format("\n".join(nodes), "\n".join(relationships))
