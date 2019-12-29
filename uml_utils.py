@@ -1,14 +1,14 @@
 #!/usr/bin/python
 from html_utils import format_uml_class_features_to_html
 
+_uml_specifier_representations = {"PRIVATE": "-", "PROTECTED": "#", "PUBLIC": "+"}
 
-def _build_uml_properties_representation(properties, access_modificator_representations):
+
+def _build_uml_properties_representation(properties):
     results = []
-
     for property in properties:
         specifier = property["access_specifier"]
-        specifier_representation = access_modificator_representations[specifier]
-
+        specifier_representation = _uml_specifier_representations[specifier]
         result = "{} {} : {}".format(specifier_representation, property["name"], property["type"])
         results.append(result)
 
@@ -45,14 +45,14 @@ def _build_uml_method_specificators_representation(method):
         return ""
 
 
-def _build_uml_methods_representation(methods, access_modificator_representations):
+def _build_uml_methods_representation(methods):
     results = []
 
     representation = "{} {}( {} ) : {} {}"
 
     for method in methods:
         specifier = method["access_specifier"]
-        specifier_representation = access_modificator_representations[specifier]
+        specifier_representation = _uml_specifier_representations[specifier]
         result = representation.format(specifier_representation,
                                        method["name"],
                                        _build_uml_method_parameters_representation(method),
@@ -65,18 +65,7 @@ def _build_uml_methods_representation(methods, access_modificator_representation
     return results
 
 
-def _build_properties_and_methods_uml_representation(properties, methods):
-    access_modificator_representations = {"PRIVATE": "-", "PROTECTED": "#", "PUBLIC": "+"}
-
-    properties_representation = _build_uml_properties_representation(
-        properties, access_modificator_representations)
-    methods_representation = _build_uml_methods_representation(
-        methods, access_modificator_representations)
-
-    return properties_representation, methods_representation
-
-
 def build_uml_class_content(full_class_name, properties, methods):
-    uml_properties, uml_methods = _build_properties_and_methods_uml_representation(
-        properties, methods)
-    return format_uml_class_features_to_html(full_class_name, uml_properties, uml_methods)
+    properties_uml = _build_uml_properties_representation(properties)
+    methods_uml = _build_uml_methods_representation(methods)
+    return format_uml_class_features_to_html(full_class_name, properties_uml, methods_uml)
