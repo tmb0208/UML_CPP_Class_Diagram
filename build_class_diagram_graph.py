@@ -6,30 +6,6 @@ from parser.class_parser import ClassParser
 from arguments_parser import ArgumentsParser
 
 
-def parse_cpp_class(cpp_file_path, class_pattern, clang_args):
-    if not os.path.isfile(cpp_file_path):
-        raise ValueError("Error: No such file: '{}'".format(cpp_file_path))
-
-    parser = ClassParser(cpp_file_path, class_pattern, clang_args)
-    classes = parser.parse()
-    if not classes:
-        raise ValueError(
-            "Error: No class matching pattern '{}' in file '{}', clang args: {}".format(
-                class_pattern, cpp_file_path, clang_args))
-        return None
-
-    elif len(classes) > 1:
-        classes_full_names = []
-        for c in classes:
-            classes_full_names.append(c["full_name"])
-        raise ValueError(
-            "Error: In file '{}' several classes are matching pattern '{}': {}".format(
-                cpp_file_path, class_pattern, classes_full_names))
-        return None
-
-    return parser.parse_with_all_declarations_if_only()
-
-
 def replace_html_specific_characters(string):
     return string.replace("&", "&#38;").replace("<", "&#60;").replace(">", "&#62;")
 
@@ -239,7 +215,7 @@ def parse_classes(args_list):
 
     for args in args_list:
         if args.file_path:
-            c = parse_cpp_class(args.file_path, args.class_pattern, args.clang_arguments)
+            c = ClassParser(args.file_path, args.class_pattern, args.clang_arguments).parse()
             if c:
                 result.append(c)
 

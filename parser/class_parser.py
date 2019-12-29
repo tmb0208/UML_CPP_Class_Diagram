@@ -1,28 +1,52 @@
 #!/usr/bin/python
+import os
+import re
 from cindex_wrappers.file_declarations_parser import FileDeclarationsParser
 from declaration_parsers.function_declaration_parser import FunctionDeclarationParser
 from declaration_parsers.property_declaration_parser import PropertyDeclarationParser
 
 
 class ClassParser:
-    def __init__(self, source_file_path, class_name, clang_args=None):
-        self.file_parser = FileDeclarationsParser(source_file_path, clang_args)
+    def __init__(self, file_path, class_name, clang_args=None):
+        self.file_parser = FileDeclarationsParser(file_path, clang_args)
         self.class_name = class_name
-        self.is_parsed = False
 
-    def parse(self):
-        self.parsed_classes = self.file_parser.findall_classes(self.class_name)
-        self.is_parsed = True
-        return self.parsed_classes
-
-    def parse_with_all_declarations_if_only(self):
-        if not self.is_parsed:
-            self.parse()
-
-        if not self.parsed_classes or len(self.parsed_classes) > 1:
+    def _search_class_full_name(self):
+        classes_full_names = self.file_parser.parse_classes_full_names()
+        if not classes_full_names:
+            raise ValueError(
+                "Error: No classes in file '{}', clang args: {}".format(file_path, clang_args))
             return None
 
-        return ClassParser._extend_class_with_declaration_info(self.parsed_classes[0])
+        class_pattern = r"(.*::)?{}$".format(self.class_name)
+        matched_classes_full_names = filter(lambda full_name: re.search(class_pattern, full_name),
+                                            classes_full_names)
+        if not matched_classes_full_names:
+            raise ValueError(
+                "Error: No class matching pattern '{}' in file '{}', clang args '{}', "
+                "suggested classes: {}".format(class_pattern, file_path, clang_args,
+                                               classes_full_names))
+            return None
+
+        elif len(matched_classes_full_names) > 1:
+            raise ValueError(
+                "Error: In file '{}' several classes are matching pattern '{}': {}".format(
+                    file_path, class_pattern, matched_classes_full_names))
+            return None
+
+        return matched_classes_full_names[0]
+
+    def parse(self):
+        matched_full_name = self._search_class_full_name()
+        if matched_full_name:
+            results = self.file_parser.parse_classes(matched_full_name)
+
+            if len(results) == 1:
+                result = results[0]
+                result = ClassParser._extend_class_with_declaration_info(result)
+                return result
+
+        return None
 
     @staticmethod
     def _extend_properties_with_declaration_info(properties):
